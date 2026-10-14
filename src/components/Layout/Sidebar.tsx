@@ -1,3 +1,4 @@
+import { modKey } from '../../utils/platform';
 import {
   type FC,
   useState,
@@ -302,17 +303,6 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
                       <Plus size={14} className="text-gray-500 dark:text-gray-400 shrink-0" />
                       <span>New Notebook</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        onGoToStartScreen?.();
-                      }}
-                      className="w-full h-11 px-2.5 rounded-lg text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center gap-2 cursor-pointer font-medium transition-colors"
-                    >
-                      <ArrowLeft size={14} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                      <span>All Notebooks</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -333,7 +323,7 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('inkwell-open-command-palette'))}
-            title="Search sections and notebooks (⌘K)"
+            title={`Search sections and notebooks (${modKey}K)`}
             className="w-full h-9 mb-3 px-3 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#252525] dark:hover:bg-[#2e2e2e] border border-black/[0.04] dark:border-white/[0.06] text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between transition-colors cursor-pointer group"
           >
             <span className="flex items-center gap-2">
@@ -341,7 +331,7 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
               <span className="font-normal">Search…</span>
             </span>
             <kbd className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-black/[0.05] dark:bg-white/10 text-gray-400 dark:text-gray-400 border border-black/[0.04] dark:border-white/[0.06]">
-              ⌘K
+              {modKey}K
             </kbd>
           </button>
 
@@ -426,6 +416,18 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
             >
               <Plus size={14} />
               <span>Add Section</span>
+            </button>
+          </div>
+
+          {/* Back to the start screen, pinned to the bottom */}
+          <div className="border-t border-black/[0.06] dark:border-white/[0.08] py-3">
+            <button
+              type="button"
+              onClick={() => onGoToStartScreen?.()}
+              className="w-full h-10 px-3 rounded-xl text-left text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-black/[0.05] dark:hover:bg-white/[0.06] flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <ArrowLeft size={14} className="text-gray-500 dark:text-gray-400 shrink-0" />
+              <span>All Notebooks</span>
             </button>
           </div>
         </div>

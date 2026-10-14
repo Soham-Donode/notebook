@@ -6,8 +6,10 @@ import {
   type FC,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { Search, Layers, Notebook as NotebookIcon, CornerDownLeft, ArrowRightLeft } from 'lucide-react';
+import { Search, Layers, Notebook as NotebookIcon, CornerDownLeft, ArrowRightLeft, FileText, Paperclip } from 'lucide-react';
 import { useNotesStore } from '../../store/useNotesStore';
+import { useUiStore } from '../../store/useUiStore';
+import { searchNotebooks, type SearchHit } from '../../utils/globalSearch';
 import {
   searchAndRankItems,
   type SearchItem,
@@ -83,6 +85,13 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
     return searchAndRankItems(allSearchItems, effectiveQuery);
   }, [allSearchItems, effectiveQuery]);
 
+  // Home screen: also match section names, note text and file names across all notebooks
+  const contentHits: SearchHit[] = useMemo(
+    () => (mode === 'notebooks' ? searchNotebooks(notebooks, effectiveQuery) : []),
+    [mode, notebooks, effectiveQuery]
+  );
+  const entryCount = results.length + contentHits.length;
+
   // Reset state on open
   useEffect(() => {
     if (isOpen) {
@@ -105,6 +114,20 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
 
   if (!isOpen) return null;
 
+  const handleSelectHit = (hit: SearchHit) => {
+    navigateToSection(hit.notebookId, hit.sectionId);
+    const ui = useUiStore.getState();
+    ui.setEditingId(null);
+    if (hit.elementId) ui.setSelectedId(hit.elementId);
+    else ui.clearSelection();
+    onClose();
+  };
+
+  const handleSelectIndex = (index: number) => {
+    if (index < results.length) handleSelect(results[index]);
+    else if (contentHits[index - results.length]) handleSelectHit(contentHits[index - results.length]);
+  };
+
   const handleSelect = (scoredItem?: ScoredSearchItem) => {
     if (!scoredItem) return;
     const item = scoredItem.item;
@@ -119,15 +142,15 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (results.length === 0) return;
-      setSelectedIndex((prev) => (prev + 1) % results.length);
+      if (entryCount === 0) return;
+      setSelectedIndex((prev) => (prev + 1) % entryCount);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (results.length === 0) return;
-      setSelectedIndex((prev) => (prev - 1 + results.length) % results.length);
+      if (entryCount === 0) return;
+      setSelectedIndex((prev) => (prev - 1 + entryCount) % entryCount);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (results[selectedIndex]) handleSelect(results[selectedIndex]);
+      handleSelectIndex(selectedIndex);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       onClose();
@@ -152,7 +175,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
 
   const getPlaceholder = () => {
     if (isNotebookSwitcher) return 'Switch to notebook…';
-    if (mode === 'notebooks') return 'Search notebooks…';
+    if (mode === 'notebooks') return 'Search notebooks, sections and notes…';
     return 'Search sections…  type > to switch notebooks';
   };
 
@@ -205,7 +228,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
 
         {/* Results List */}
         <div ref={listRef} className="flex-1 overflow-y-auto p-2 space-y-0.5 max-h-[400px] min-h-[120px]">
-          {results.length === 0 ? (
+          {entryCount === 0 ? (
             <div className="py-14 px-4 text-center">
               <Search size={26} className="mx-auto mb-3 text-white/15" />
               <p className="text-xs font-medium text-white/30">
@@ -215,7 +238,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
               </p>
             </div>
           ) : (
-            results.map((scored, index) => {
+            [...results.map((scored, index) => {
               const item = scored.item;
               const isSelected = index === selectedIndex;
               const isSection = item.type === 'section';
@@ -292,7 +315,62 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ isOpen, onClose, mode 
                   </div>
                 </div>
               );
-            })
+            }),
+            ...contentHits.map((hit, i) => {
+              const index = results.length + i;
+              const isSelected = index === selectedIndex;
+              const HitIcon = hit.kind === 'section' ? Layers : hit.kind === 'text' ? FileText : Paperclip;
+              const label = hit.kind === 'section' ? 'Section' : hit.kind === 'text' ? 'Note' : 'File';
+              return (
+                <div
+                  key={`hit-${hit.sectionId}-${hit.elementId ?? 'section'}-${i}`}
+                  ref={(el) => { itemRefs.current[index] = el; }}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  onClick={() => handleSelectHit(hit)}
+                  className="w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs cursor-pointer select-none transition-all"
+                  style={{
+                    background: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    border: isSelected ? '1px solid rgba(255,255,255,0.1)' : '1px solid transparent',
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    >
+                      <HitIcon size={14} strokeWidth={2} className="text-white/50" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-[13px] text-white/85 truncate">
+                        {hit.snippet.slice(0, hit.matchStart)}
+                        <span className="font-bold text-white underline decoration-white/30">
+                          {hit.snippet.slice(hit.matchStart, hit.matchEnd)}
+                        </span>
+                        {hit.snippet.slice(hit.matchEnd)}
+                      </div>
+                      <div className="text-[11px] text-white/30 truncate mt-0.5">
+                        In &ldquo;{hit.notebookName}&rdquo;
+                        {hit.kind !== 'section' && ` › ${hit.sectionName || 'Untitled section'}`}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className="text-[10px] uppercase font-semibold tracking-wider text-white/25 px-1.5 py-0.5 rounded"
+                      style={{ background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      {label}
+                    </span>
+                    {isSelected && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-white/40 pl-1">
+                        <span>Open</span>
+                        <CornerDownLeft size={11} strokeWidth={2.2} />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })]
           )}
         </div>
 

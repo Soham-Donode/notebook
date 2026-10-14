@@ -1,4 +1,5 @@
-import { FC, useState, useEffect, useMemo, useRef } from 'react';
+import { modKey } from '../../utils/platform';
+import { FC, useState, useEffect, useMemo } from 'react';
 import { Plus, Notebook, Clock, Trash2, MoreHorizontal, Pencil, Search } from 'lucide-react';
 import { useNotesStore } from '../../store/useNotesStore';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
@@ -29,7 +30,6 @@ export const StartScreen: FC = () => {
   const [renamingNotebook, setRenamingNotebook] = useState<{ id: string; name: string } | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const notebooks = useNotesStore((state) => state.notebooks);
   const createNotebook = useNotesStore((state) => state.createNotebook);
@@ -42,19 +42,6 @@ export const StartScreen: FC = () => {
     if (openMenuId) window.addEventListener('click', handleCloseMenu);
     return () => window.removeEventListener('click', handleCloseMenu);
   }, [openMenuId]);
-
-  // Cmd+K → focus search
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
 
   const sortedNotebooks = useMemo(
     () => [...notebooks].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -107,19 +94,20 @@ export const StartScreen: FC = () => {
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
               />
               <input
-                ref={searchRef}
+                readOnly
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search notebooks…  ⌘K"
+                placeholder={`Search notebooks…  ${modKey}K`}
                 className="w-full h-11 pl-9 pr-4 rounded-full text-[13px] text-white placeholder-white/35 focus:outline-none transition-all"
                 style={{
                   background: 'rgba(255,255,255,0.08)',
                   border: '1px solid rgba(255,255,255,0.12)',
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.13)';
-                  e.currentTarget.style.border = '1px solid rgba(255,255,255,0.22)';
+                  // Search lives in the Ctrl+K dialog; the bar is just its entry point
+                  e.currentTarget.blur();
+                  window.dispatchEvent(new CustomEvent('inkwell-open-command-palette'));
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.background = 'rgba(255,255,255,0.08)';

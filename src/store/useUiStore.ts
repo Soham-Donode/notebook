@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import { CanvasElement, ToolMode, UiState } from '../types';
 
+export const DEFAULT_FONT_FAMILY = 'Comic Sans MS, Comic Neue, cursive, sans-serif';
+
 interface UiStore extends UiState {
+  defaultFontFamily: string;
+  defaultFontSize: number;
+  defaultColor: string;
+  setDefaultFontFamily: (v: string) => void;
+  setDefaultFontSize: (v: number) => void;
+  setDefaultColor: (v: string) => void;
   setSelectedId: (id: string | null) => void;
   setSelectedIds: (ids: string[]) => void;
   toggleSelectedId: (id: string) => void;
@@ -32,6 +40,12 @@ const initialState: UiState = {
 
 export const useUiStore = create<UiStore>((set) => ({
   ...initialState,
+  defaultFontFamily: DEFAULT_FONT_FAMILY,
+  defaultFontSize: 18,
+  defaultColor: '',
+  setDefaultFontFamily: (defaultFontFamily) => set({ defaultFontFamily }),
+  setDefaultFontSize: (defaultFontSize) => set({ defaultFontSize }),
+  setDefaultColor: (defaultColor) => set({ defaultColor }),
   setSelectedId: (id) =>
     set({
       selectedId: id,

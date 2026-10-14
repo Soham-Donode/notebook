@@ -1,3 +1,4 @@
+import { modKey } from '../../utils/platform';
 import {
   type FC,
   useState,
@@ -21,6 +22,7 @@ import {
   Moon,
   Bold,
   Palette,
+  Presentation,
 } from 'lucide-react';
 import { useNotesStore } from '../../store/useNotesStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -30,6 +32,7 @@ import { TextElement } from '../../types';
 interface FloatingToolbarProps {
   onAddPdfClick: () => void;
   onAddImageClick: () => void;
+  onAddPptClick: () => void;
   onExportPdfClick?: () => void;
 }
 
@@ -58,6 +61,7 @@ const TEXT_COLORS = [
 export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   onAddPdfClick,
   onAddImageClick,
+  onAddPptClick,
   onExportPdfClick,
 }) => {
   const selectedId = useUiStore((state) => state.selectedId);
@@ -80,15 +84,21 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
     (el) => el.id === selectedId && el.type === 'text'
   ) as TextElement | undefined;
 
-  const [defaultFontFamily, setDefaultFontFamily] = useState('Comic Sans MS, Comic Neue, cursive, sans-serif');
-  const [defaultFontSize, setDefaultFontSize] = useState(18);
-  const [defaultColor, setDefaultColor] = useState<string>('');
+  const defaultFontFamily = useUiStore((state) => state.defaultFontFamily);
+  const setDefaultFontFamily = useUiStore((state) => state.setDefaultFontFamily);
+  const defaultFontSize = useUiStore((state) => state.defaultFontSize);
+  const setDefaultFontSize = useUiStore((state) => state.setDefaultFontSize);
+  const defaultColor = useUiStore((state) => state.defaultColor);
+  const setDefaultColor = useUiStore((state) => state.setDefaultColor);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
   const colorMenuRef = useRef<HTMLDivElement>(null);
+
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -98,14 +108,17 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
       if (colorMenuRef.current && !colorMenuRef.current.contains(e.target as Node)) {
         setIsColorMenuOpen(false);
       }
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
     };
-    if (isMenuOpen || isColorMenuOpen) {
+    if (isMenuOpen || isColorMenuOpen || isAddMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMenuOpen, isColorMenuOpen]);
+  }, [isMenuOpen, isColorMenuOpen, isAddMenuOpen]);
 
   const currentFontFamily = selectedTextElement?.fontFamily ?? defaultFontFamily;
   const currentFontSize = selectedTextElement?.fontSize ?? defaultFontSize;
@@ -158,25 +171,56 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
 
   return (
     <div className="absolute top-10 left-1/2 -translate-x-1/2 z-40 h-11 flex items-center gap-2 rounded-2xl bg-white/90 dark:bg-[#262626]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/[0.1] shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] px-2.5 py-1.5 select-none no-drag transition-colors max-w-[calc(100vw-2rem)]">
-      {/* Add PDF button */}
-      <button
-        type="button"
-        onClick={onAddPdfClick}
-        className="h-8 px-3 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-800 dark:text-gray-200 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer border border-black/[0.04] dark:border-white/[0.06] shrink-0 whitespace-nowrap"
-      >
-        <FileUp size={14} className="text-gray-900 dark:text-gray-100 shrink-0" />
-        <span className="whitespace-nowrap">Add pdf</span>
-      </button>
+      {/* Unified "Add" file import button with dropdown */}
+      <div ref={addMenuRef} className="relative flex items-center shrink-0 no-drag">
+        <button
+          type="button"
+          onClick={() => setIsAddMenuOpen((prev) => !prev)}
+          title="Add PDF, presentation, or image"
+          className={`h-8 px-3 rounded-xl text-xs font-medium flex items-center gap-1.5 transition cursor-pointer border shrink-0 whitespace-nowrap ${
+            isAddMenuOpen
+              ? 'bg-black text-white dark:bg-white dark:text-black border-transparent shadow-xs'
+              : 'bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-800 dark:text-gray-200 border-black/[0.04] dark:border-white/[0.06]'
+          }`}
+        >
+          <FileUp size={14} className="shrink-0" />
+          <span>Add</span>
+          <ChevronDown size={11} className={`shrink-0 transition-transform ${isAddMenuOpen ? 'rotate-180' : ''}`} />
+        </button>
 
-      {/* Attachment button for Images */}
-      <button
-        type="button"
-        onClick={onAddImageClick}
-        title="Add image attachment"
-        className="w-8 h-8 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-700 dark:text-gray-200 flex items-center justify-center transition cursor-pointer border border-black/[0.04] dark:border-white/[0.06] shrink-0"
-      >
-        <Paperclip size={15} />
-      </button>
+        {isAddMenuOpen && (
+          <div className="absolute left-0 top-full mt-2 w-44 rounded-xl bg-white/95 dark:bg-[#262626]/98 backdrop-blur-2xl shadow-[0_12px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)] border border-black/[0.08] dark:border-white/[0.1] p-1.5 z-50 animate-fade-in no-drag">
+            <button
+              type="button"
+              onClick={() => { setIsAddMenuOpen(false); onAddPdfClick(); }}
+              className="w-full px-3 py-2 rounded-lg text-left text-xs text-gray-800 dark:text-gray-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.08] transition flex items-center gap-2.5 cursor-pointer font-medium no-drag"
+            >
+              <FileUp size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
+              <span>PDF</span>
+              <span className="ml-auto text-[10px] text-gray-400 font-mono">.pdf</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsAddMenuOpen(false); onAddPptClick(); }}
+              className="w-full px-3 py-2 rounded-lg text-left text-xs text-gray-800 dark:text-gray-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.08] transition flex items-center gap-2.5 cursor-pointer font-medium no-drag"
+            >
+              <Presentation size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
+              <span>Presentation</span>
+              <span className="ml-auto text-[10px] text-gray-400 font-mono">.pptx</span>
+            </button>
+            <div className="border-t border-black/[0.06] dark:border-white/[0.08] my-1" />
+            <button
+              type="button"
+              onClick={() => { setIsAddMenuOpen(false); onAddImageClick(); }}
+              className="w-full px-3 py-2 rounded-lg text-left text-xs text-gray-800 dark:text-gray-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.08] transition flex items-center gap-2.5 cursor-pointer font-medium no-drag"
+            >
+              <Paperclip size={13} className="text-gray-500 dark:text-gray-400 shrink-0" />
+              <span>Image</span>
+              <span className="ml-auto text-[10px] text-gray-400 font-mono">png/jpg…</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Hand / Select / Arrow tool segmented toggle */}
       <div className="flex items-center p-0.5 rounded-xl bg-gray-100/90 dark:bg-[#333333] border border-black/[0.04] dark:border-white/[0.06] h-8 shrink-0">
@@ -441,7 +485,7 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
                 <RotateCcw size={14} className="text-gray-500 dark:text-gray-400" />
                 <span>Reset View</span>
               </div>
-              <span className="text-[10px] text-gray-400 font-mono">⌘0</span>
+              <span className="text-[10px] text-gray-400 font-mono">{modKey}0</span>
             </button>
             <div className="border-t border-black/[0.06] dark:border-white/[0.08] my-1" />
             <button

@@ -10,6 +10,7 @@ import { Canvas } from './components/Canvas/Canvas';
 import { FloatingToolbar } from './components/Layout/FloatingToolbar';
 import { CanvasElements } from './components/Canvas/CanvasElements';
 import { processPdfFile } from './utils/pdfProcessor';
+import { processPptFile } from './utils/pptProcessor';
 import { exportSectionToPdf } from './utils/exportPdf';
 import { CanvasElement, ImageElement, TextElement } from './types';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
@@ -40,6 +41,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const pptInputRef = useRef<HTMLInputElement>(null);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((msg: string) => {
@@ -60,6 +62,34 @@ export default function App() {
     };
     window.addEventListener('inkwell-toast', onToast);
     return () => window.removeEventListener('inkwell-toast', onToast);
+  }, []);
+
+  // Esc → back to All Notebooks, but only when nothing else needs the key
+  // (capture phase so we read the state before Canvas clears selection on the same press)
+  useEffect(() => {
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const notes = useNotesStore.getState();
+      if (!notes.activeNotebookId) return;
+
+      const t = e.target as HTMLElement | null;
+      const typing =
+        t?.tagName === 'INPUT' ||
+        t?.tagName === 'TEXTAREA' ||
+        t?.tagName === 'SELECT' ||
+        t?.isContentEditable ||
+        Boolean(t?.closest('.ProseMirror'));
+      if (typing) return;
+
+      const ui = useUiStore.getState();
+      if (ui.editingId || ui.selectedId || ui.selectedIds.length > 0 || ui.activeTool !== 'select') return;
+      // Any open modal (confirm, create, command palette) owns Esc
+      if (document.querySelector('.fixed.inset-0')) return;
+
+      notes.setActiveNotebook(null);
+    };
+    window.addEventListener('keydown', onEscape, true);
+    return () => window.removeEventListener('keydown', onEscape, true);
   }, []);
 
   // Global shortcuts: Command + K (Search), Ctrl + B (Sidebar), Cmd+← (Home)
@@ -164,6 +194,7 @@ export default function App() {
   const handleDoubleClickCanvas = (canvasX: number, canvasY: number) => {
     if (!activeNotebookId || !activeSectionId) return;
 
+    const ui = useUiStore.getState();
     const newTextElement: TextElement = {
       id: crypto.randomUUID(),
       type: 'text',
@@ -172,8 +203,9 @@ export default function App() {
       width: 320,
       height: null,
       content: '<p></p>',
-      fontFamily: 'Comic Sans MS, Comic Neue, cursive, sans-serif',
-      fontSize: 18,
+      fontFamily: ui.defaultFontFamily,
+      fontSize: ui.defaultFontSize,
+      ...(ui.defaultColor ? { color: ui.defaultColor } : {}),
       zIndex: 1000,
     };
 
@@ -198,100 +230,139 @@ export default function App() {
     }
   };
 
-  // Process chosen PDF file
-  const handlePdfFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeSection) return;
-
-    setIsImporting(true);
-    setImportProgress({ done: 0, total: 1 });
-
-    try {
-      const container = document.getElementById('infinite-canvas-container');
-      const rect = container?.getBoundingClientRect() ?? {
-        width: window.innerWidth - 280,
-        height: window.innerHeight,
-      };
-
-      const pages = await processPdfFile(
-        file,
-        activeSection.viewport,
-        { width: rect.width, height: rect.height },
-        (done, total) => {
-          setImportProgress({ done, total });
-        }
-      );
-
-      // Batch add — single store update + single undo snapshot
-      addElements(pages);
-    } catch (err) {
-      console.error('Failed to import PDF:', err);
-      showToast('Could not import PDF. Please check the file format.');
-    } finally {
-      setIsImporting(false);
-      setImportProgress(null);
+  // Trigger PowerPoint file picker
+  const handleAddPptClick = () => {
+    if (pptInputRef.current) {
+      pptInputRef.current.value = '';
+      pptInputRef.current.click();
     }
   };
 
-  // Process attached image files
-  const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !activeSection) return;
+  const classifyFile = (file: File): 'pdf' | 'ppt' | 'image' | null => {
+    const name = file.name.toLowerCase();
+    if (file.type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+    if (name.endsWith('.pptx') || name.endsWith('.ppt')) return 'ppt';
+    if (file.type.startsWith('image/')) return 'image';
+    return null;
+  };
+
+  // Import any mix of PDFs, presentations and images, laid out side by side
+  const importFiles = async (incoming: File[]) => {
+    if (!activeSection || useUiStore.getState().isImporting) return;
+
+    const files = incoming.filter((f) => classifyFile(f));
+    const skipped = incoming.length - files.length;
+    if (files.length === 0) {
+      showToast('Unsupported file type. Drop PDFs, PowerPoints or images.');
+      return;
+    }
 
     const container = document.getElementById('infinite-canvas-container');
     const rect = container?.getBoundingClientRect() ?? {
       width: window.innerWidth - 280,
       height: window.innerHeight,
     };
+    const size = { width: rect.width, height: rect.height };
+    const base = activeSection.viewport;
+    let offsetX = 0; // canvas-space shift applied to each successive file
 
-    const canvasCenterX = (rect.width / 2 - activeSection.viewport.x) / activeSection.viewport.zoom;
-    const canvasCenterY = (rect.height / 2 - activeSection.viewport.y) / activeSection.viewport.zoom;
+    setIsImporting(true);
+    setImportProgress({ done: 0, total: 1 });
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const imageKey = `img:${crypto.randomUUID()}`;
-        await putPageImage(imageKey, file);
-
-        // Measure natural dimensions
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        img.src = objectUrl;
-
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-        });
-        URL.revokeObjectURL(objectUrl);
-
-        const naturalWidth = img.naturalWidth || 400;
-        const naturalHeight = img.naturalHeight || 300;
-        const baseWidth = Math.min(480, naturalWidth);
-        const baseHeight = Math.round(baseWidth * (naturalHeight / naturalWidth));
-
-        // Stagger multiple files slightly
-        const offset = i * 24;
-
-        const newImageElement: ImageElement = {
-          id: crypto.randomUUID(),
-          type: 'image',
-          name: file.name,
-          x: Math.round(canvasCenterX - baseWidth / 2 + offset),
-          y: Math.round(canvasCenterY - baseHeight / 2 + offset),
-          width: baseWidth,
-          height: baseHeight,
-          imageKey,
-          isLocked: false,
-          zIndex: 100 + i,
-        };
-
-        addElement(newImageElement);
-      } catch (err) {
-        console.error('Failed to load image attachment:', err);
-        showToast(`Could not load image: ${file.name}`);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const kind = classifyFile(file)!;
+        // Moving the viewport left moves the placement centre right
+        const vp = { ...base, x: base.x - offsetX * base.zoom };
+        try {
+          let added: { x: number; width: number }[] = [];
+          if (kind === 'image') {
+            const el = await buildImageElement(file, vp, size, i);
+            addElement(el);
+            added = [el];
+          } else {
+            const onProgress = (done: number, total: number) => setImportProgress({ done, total });
+            const pages =
+              kind === 'pdf'
+                ? await processPdfFile(file, vp, size, onProgress)
+                : await processPptFile(file, vp, size, onProgress);
+            addElements(pages);
+            added = pages;
+            if (kind === 'ppt') {
+              showToast(`Imported ${pages.length} slide${pages.length !== 1 ? 's' : ''} from ${file.name}`);
+            }
+          }
+          const maxW = added.reduce((m, el) => Math.max(m, el.width), 0);
+          offsetX += maxW + 60;
+        } catch (err) {
+          console.error(`Failed to import ${file.name}:`, err);
+          showToast(
+            kind === 'ppt'
+              ? 'Could not convert presentation. PowerPoint or LibreOffice must be installed.'
+              : `Could not import ${file.name}`
+          );
+        }
       }
+      if (skipped > 0) showToast(`Skipped ${skipped} unsupported file${skipped !== 1 ? 's' : ''}`);
+    } finally {
+      setIsImporting(false);
+      setImportProgress(null);
     }
   };
+
+  const buildImageElement = async (
+    file: File,
+    viewport: { x: number; y: number; zoom: number },
+    size: { width: number; height: number },
+    index: number
+  ): Promise<ImageElement> => {
+    const canvasCenterX = (size.width / 2 - viewport.x) / viewport.zoom;
+    const canvasCenterY = (size.height / 2 - viewport.y) / viewport.zoom;
+
+    const imageKey = `img:${crypto.randomUUID()}`;
+    await putPageImage(imageKey, file);
+
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+      });
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+
+    const naturalWidth = img.naturalWidth || 400;
+    const naturalHeight = img.naturalHeight || 300;
+    const baseWidth = Math.min(480, naturalWidth);
+    const baseHeight = Math.round(baseWidth * (naturalHeight / naturalWidth));
+
+    return {
+      id: crypto.randomUUID(),
+      type: 'image',
+      name: file.name,
+      x: Math.round(canvasCenterX - baseWidth / 2),
+      y: Math.round(canvasCenterY - baseHeight / 2),
+      width: baseWidth,
+      height: baseHeight,
+      imageKey,
+      isLocked: false,
+      zIndex: 100 + index,
+    };
+  };
+
+  const handleFileInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length) await importFiles(files);
+  };
+
+  // Drag & drop files onto the canvas area
+  const [isDragOver, setIsDragOver] = useState(false);
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
 
   // Global Clipboard Paste Handler (Priority 1: Screenshot/Image, Priority 2: Canvas Elements, Priority 3: Plain text)
   useEffect(() => {
@@ -495,8 +566,8 @@ export default function App() {
           width: 340,
           height: null,
           content: paragraphs || '<p></p>',
-          fontFamily: 'Comic Sans MS, Comic Neue, cursive, sans-serif',
-          fontSize: 18,
+          fontFamily: useUiStore.getState().defaultFontFamily,
+          fontSize: useUiStore.getState().defaultFontSize,
           zIndex: 1000,
         };
 
@@ -553,8 +624,9 @@ export default function App() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="application/pdf"
-            onChange={handlePdfFileChange}
+            accept="application/pdf,.pdf"
+            multiple
+            onChange={handleFileInputChange}
             className="hidden"
           />
 
@@ -564,7 +636,17 @@ export default function App() {
             type="file"
             accept="image/*"
             multiple
-            onChange={handleImageFileChange}
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
+
+          {/* Hidden PowerPoint input (.pptx) */}
+          <input
+            ref={pptInputRef}
+            type="file"
+            accept=".ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            multiple
+            onChange={handleFileInputChange}
             className="hidden"
           />
 
@@ -575,11 +657,30 @@ export default function App() {
           />
 
           {/* Canvas Area (floating toolbar is centered over this region) */}
-          <main className="flex-1 h-full relative overflow-hidden">
+          <main
+            className="flex-1 h-full relative overflow-hidden"
+            onDragEnter={(e) => { if (hasFiles(e)) { e.preventDefault(); setIsDragOver(true); } }}
+            onDragOver={(e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsDragOver(false);
+            }}
+            onDrop={(e) => {
+              if (!hasFiles(e)) return;
+              e.preventDefault();
+              setIsDragOver(false);
+              void importFiles(Array.from(e.dataTransfer.files));
+            }}
+          >
+            {isDragOver && (
+              <div className="absolute inset-3 z-[60] rounded-3xl border-2 border-dashed border-pill-active bg-black/5 backdrop-blur-[1px] pointer-events-none flex items-center justify-center text-lg text-gray-700 dark:text-gray-200">
+                Drop PDFs, PowerPoints or images to add them
+              </div>
+            )}
             {/* Floating Toolbar centered over canvas */}
             <FloatingToolbar
               onAddPdfClick={handleAddPdfClick}
               onAddImageClick={handleAddImageClick}
+              onAddPptClick={handleAddPptClick}
               onExportPdfClick={handleExportPdfClick}
             />
 
@@ -588,7 +689,7 @@ export default function App() {
               <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-full bg-gray-900/90 dark:bg-[#1E1E1E]/95 text-white dark:text-gray-100 text-xs font-medium backdrop-blur-xl shadow-2xl border border-white/10 pointer-events-none flex items-center gap-3 animate-slide-down">
                 <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
                 <span>
-                  Importing page {importProgress.done} of {importProgress.total}…
+                  Importing {importProgress.done} of {importProgress.total}…
                 </span>
               </div>
             )}

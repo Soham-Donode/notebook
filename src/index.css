@@ -97,8 +97,9 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.35);
 }
 
-/* Native macOS traffic-light clearance when titleBarStyle is Overlay */
-.titlebar-pad { padding-top: 32px; }
+/* Traffic-light clearance — macOS Overlay mode only.
+   On Windows the native title bar handles spacing so this is 0. */
+.titlebar-pad { padding-top: 0; }
 .drag-region  { -webkit-app-region: drag; }
 .no-drag      { -webkit-app-region: no-drag; }
 
