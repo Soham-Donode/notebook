@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas-pro';
 import { putPageImage } from '../store/imageStore';
 import { PdfPageElement, Viewport } from '../types';
+import { getPageRasterScale, normalizePageSize } from './pageSizing';
 
 const PAGE_GAP = 40;
 const START_OFFSET_Y = 60;
@@ -42,9 +43,8 @@ async function waitForPageAssets(node: HTMLElement) {
   );
 }
 
-async function rasterizePage(node: HTMLElement): Promise<Blob> {
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  const scale = Math.min(2, Math.max(1.5, dpr));
+async function rasterizePage(node: HTMLElement, naturalWidth: number, naturalHeight: number): Promise<Blob> {
+  const scale = getPageRasterScale(naturalWidth, naturalHeight);
 
   const canvas = await html2canvas(node, {
     backgroundColor: '#ffffff',
@@ -97,9 +97,11 @@ async function pagesToElements(
     const pageNumber = index + 1;
     onProgress?.(pageNumber, totalPages);
 
-    const { node, width, height } = pages[index];
+    const { node, width: naturalWidth, height: naturalHeight } = pages[index];
+    const { width, height } = normalizePageSize(naturalWidth, naturalHeight);
+
     await waitForPageAssets(node);
-    const blob = await rasterizePage(node);
+    const blob = await rasterizePage(node, naturalWidth, naturalHeight);
 
     const imageKey = `page:${documentId}:${pageNumber}`;
     await putPageImage(imageKey, blob);

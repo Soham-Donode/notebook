@@ -2,6 +2,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { putPageImage } from '../store/imageStore';
 import { PdfPageElement, Viewport } from '../types';
+import { getPageRasterScale, normalizePageSize } from './pageSizing';
 
 // §10 P4: Set GlobalWorkerOptions at module scope before getDocument
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -34,14 +35,16 @@ export async function processPdfFile(
     onProgress?.(pageNum, totalPages);
     const page = await pdf.getPage(pageNum);
 
-    // Unscaled viewport for card size in canvas space (scale: 1)
+    // Unscaled viewport for the page's own aspect ratio (scale: 1)
     const baseViewport = page.getViewport({ scale: 1 });
-    const cardWidth = baseViewport.width;
-    const cardHeight = baseViewport.height;
+    // Normalized card size, shared with Word/PowerPoint imports
+    const { width: cardWidth, height: cardHeight } = normalizePageSize(
+      baseViewport.width,
+      baseViewport.height
+    );
 
-    // High DPI rasterization per §9.2
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const rasterScale = 1.5 * Math.min(dpr, 2);
+    // High DPI rasterization at a consistent target width
+    const rasterScale = getPageRasterScale(baseViewport.width, baseViewport.height);
     const renderViewport = page.getViewport({ scale: rasterScale });
 
     const canvas = document.createElement('canvas');
