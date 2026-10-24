@@ -3,9 +3,7 @@
 An infinite-canvas notebook for macOS. Import PDFs, Word documents and PowerPoint slides, place images and notes anywhere, connect ideas with arrows, and export the result as a PDF.
 
 <!-- Screenshot: save your capture as docs/screenshot.png -->
-<p align="center">
-  <img src="docs/screenshot.png" alt="Notebook — infinite canvas" width="100%" />
-</p>
+<img width="1470" height="923" alt="image" src="https://github.com/user-attachments/assets/cffdd18d-2837-4ed8-99bb-384d66621a6e" />
 
 ## Features
 
