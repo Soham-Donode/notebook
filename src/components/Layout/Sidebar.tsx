@@ -315,9 +315,32 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
       >
         {/* Dedicated top padding (pt-10 = 40px) to clear macOS traffic light buttons */}
         <div className="w-full flex flex-col h-full pt-10">
-          {/* Header row aligned with FloatingToolbar level (top-10, h-11) */}
-          <div className="h-11 flex items-center justify-between relative mb-3 pb-3 border-b border-black/[0.06] dark:border-white/[0.08]">
-            <div ref={dropdownRef} className="relative flex-1 min-w-0 mr-2">
+          {/* Top row: back to all notebooks · wordmark · sidebar toggle */}
+          <div className="h-11 grid grid-cols-[2.75rem_1fr_2.75rem] items-center mb-2">
+            <button
+              type="button"
+              onClick={() => onGoToStartScreen?.()}
+              title="Back to all notebooks"
+              className="w-11 h-11 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] active:scale-95 flex items-center justify-center transition cursor-pointer shrink-0 justify-self-start"
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <span className="text-[13px] font-black uppercase tracking-[0.14em] text-gray-900 dark:text-gray-100 text-center leading-none">
+              Notebook
+            </span>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Close Sidebar"
+              className="w-11 h-11 rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] active:scale-95 flex items-center justify-center transition cursor-pointer shrink-0 justify-self-end"
+            >
+              <PanelLeft size={17} />
+            </button>
+          </div>
+
+          {/* Notebook selector — full width */}
+          <div className="mb-3 pb-3 border-b border-black/[0.06] dark:border-white/[0.08]">
+            <div ref={dropdownRef} className="relative w-full">
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -334,7 +357,7 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
 
               {/* Apple-style Popover Menu for Notebook Switching & Management */}
               {isDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[250px] rounded-xl bg-white/95 dark:bg-[#262626]/98 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.14)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)] border border-black/10 dark:border-white/10 p-1.5 z-50 animate-fade-in no-drag">
+                <div className="absolute top-full left-0 mt-2 w-full rounded-xl bg-white/95 dark:bg-[#262626]/98 backdrop-blur-2xl shadow-[0_16px_40px_rgba(0,0,0,0.14)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)] border border-black/10 dark:border-white/10 p-1.5 z-50 animate-fade-in no-drag">
                   <div className="px-2 py-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                     Notebooks
                   </div>
@@ -473,31 +496,10 @@ export const Sidebar: FC<SidebarProps> = ({ onNewNotebookClick, onGoToStartScree
                       <Plus size={14} className="text-gray-500 dark:text-gray-400 shrink-0" />
                       <span>New Notebook</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        onGoToStartScreen?.();
-                      }}
-                      className="w-full h-11 px-2.5 rounded-lg text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] flex items-center gap-2 cursor-pointer font-medium transition-colors"
-                    >
-                      <ArrowLeft size={14} className="text-gray-500 dark:text-gray-400 shrink-0" />
-                      <span>All Notebooks</span>
-                    </button>
                   </div>
                 </div>
               )}
             </div>
-
-            {/* Toggle button */}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Close Sidebar"
-              className="w-11 h-11 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-700 dark:text-gray-200 flex items-center justify-center transition cursor-pointer border border-black/[0.04] dark:border-white/[0.06] shrink-0"
-            >
-              <PanelLeft size={16} />
-            </button>
           </div>
 
           {/* Quick Switcher / Search bar trigger button */}

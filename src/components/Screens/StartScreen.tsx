@@ -77,7 +77,7 @@ export const StartScreen: FC = () => {
       }}
     >
       {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-black/60 pointer-events-none" />
 
       {/* ── Header — transparent sticky, no backdrop so gradient is unified ── */}
       <header className="sticky top-0 z-20">
