@@ -1,3 +1,4 @@
+import html2canvas from 'html2canvas-pro';
 import { putPageImage } from '../store/imageStore';
 import { PdfPageElement, Viewport } from '../types';
 
@@ -42,8 +43,6 @@ async function waitForPageAssets(node: HTMLElement) {
 }
 
 async function rasterizePage(node: HTMLElement): Promise<Blob> {
-  // Loaded on demand so the document libraries stay out of the initial bundle.
-  const { default: html2canvas } = await import('html2canvas-pro');
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const scale = Math.min(2, Math.max(1.5, dpr));
 
@@ -224,8 +223,6 @@ export async function processPptxFile(
 }
 
 /** File extensions the importer understands. */
-export const SUPPORTED_DOCUMENT_EXTENSIONS = ['pdf', 'docx', 'pptx'] as const;
-
 export function getDocumentExtension(fileName: string): string {
   return fileName.split('.').pop()?.toLowerCase() ?? '';
 }
