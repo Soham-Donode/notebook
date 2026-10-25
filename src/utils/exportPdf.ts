@@ -4,6 +4,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 import { ArrowElement, CanvasElement, TextElement } from '../types';
 import { getPageImageUrl } from '../store/imageStore';
+import { withAlpha } from './color';
 
 interface ArrowGeometry {
   sx: number;
@@ -492,6 +493,29 @@ export async function exportSectionToPdf(
         if (textInfo) {
           ctx.drawImage(textInfo.canvas, dx, dy, dw, dh);
         }
+      } else if (el.type === 'rect') {
+        if (el.y + el.height < pageTop || el.y > pageBottom) continue;
+
+        const dx = (el.x - pageLeft) * scale;
+        const dy = (el.y - pageTop) * scale;
+        const dw = el.width * scale;
+        const dh = el.height * scale;
+        const stroke = el.color || '#111827';
+        const r = Math.min(el.radius, el.width / 2, el.height / 2) * scale;
+
+        ctx.save();
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(dx, dy, dw, dh, r);
+        } else {
+          ctx.rect(dx, dy, dw, dh);
+        }
+        ctx.fillStyle = withAlpha(stroke, 0.1);
+        ctx.fill();
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = Math.max(1, el.strokeWidth * scale);
+        ctx.stroke();
+        ctx.restore();
       } else if (el.type === 'arrow') {
         const dx = el.endX - el.startX;
         const dy = el.endY - el.startY;

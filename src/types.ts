@@ -74,9 +74,18 @@ export interface ArrowElement extends BaseElement {
   arrowHeadPosition?: 'start' | 'end' | 'both';
 }
 
-export type CanvasElement = TextElement | PdfPageElement | ImageElement | ArrowElement;
+export interface RectElement extends BaseElement {
+  type: 'rect';
+  width: number;
+  height: number;
+  radius: number;          // corner radius in canvas units (rounded by default)
+  color?: string;          // stroke colour; empty = theme default
+  strokeWidth: number;
+}
 
-export type ToolMode = 'select' | 'hand' | 'arrow';
+export type CanvasElement = TextElement | PdfPageElement | ImageElement | ArrowElement | RectElement;
+
+export type ToolMode = 'select' | 'hand' | 'arrow' | 'rect' | 'ai-capture';
 
 /** Last-used text styling, applied to newly created notes. */
 export interface TextDefaults {
@@ -86,16 +95,52 @@ export interface TextDefaults {
   isBold: boolean;
 }
 
+/** Last-used shape styling, applied to newly drawn arrows and rectangles. */
+export interface ShapeDefaults {
+  color: string;
+}
+
+/** Answer-tone presets for the "Ask AI" sidebar. */
+export type AiTone = 'formal' | 'friendly' | 'genz';
+
+/** Connection settings for the right-hand "Ask AI" sidebar (persisted to its own localStorage key). */
+export interface AiSettings {
+  apiKey: string;
+  model: string;
+  tone?: AiTone;
+}
+
+export interface AiMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  createdAt: number;
+  /** Transient — 'streaming' while tokens arrive, 'error' after a failed request. Stripped on persist. */
+  status?: 'streaming' | 'error' | 'done';
+}
+
+/** One screenshot-capture conversation in the AI sidebar. */
+export interface AiThread {
+  id: string;
+  createdAt: number;
+  imageKey: string;      // IndexedDB key (prefix `ai:`) — NOT a data URL. See §7.
+  imageWidth: number;
+  imageHeight: number;
+  messages: AiMessage[];
+}
+
 /** Transient — never persisted */
 export interface UiState {
   selectedId: string | null;
   selectedIds: string[];
   editingId: string | null;
   isSidebarOpen: boolean;
+  isAiSidebarOpen: boolean;
   isImporting: boolean;
   importProgress: { done: number; total: number } | null;
   activeTool: ToolMode;
   clipboardElements?: CanvasElement[] | null;
   pasteCount?: number;
   textDefaults: TextDefaults;
+  shapeDefaults: ShapeDefaults;
 }

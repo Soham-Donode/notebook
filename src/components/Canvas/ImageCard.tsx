@@ -92,12 +92,12 @@ const ImageCardInner: FC<ImageCardProps> = ({ element, onDoubleClickLocked }) =>
         target.closest('[data-lock-badge]') ||
         target.closest('[data-resize-handle]')
       ) {
-        if (activeTool === 'arrow') return;
+        if (activeTool !== 'select') return;
         e.stopPropagation();
         return;
       }
 
-      if (activeTool === 'hand' || activeTool === 'arrow') return;
+      if (activeTool !== 'select') return;
 
       if (element.isLocked) {
         if (e.button === 0) {
@@ -223,7 +223,7 @@ const ImageCardInner: FC<ImageCardProps> = ({ element, onDoubleClickLocked }) =>
     e: React.PointerEvent,
     handle: 'se' | 'sw' | 'ne' | 'nw'
   ) => {
-    if (element.isLocked || activeTool === 'hand') return;
+    if (element.isLocked || activeTool !== 'select') return;
     e.stopPropagation();
     e.preventDefault();
     if (e.button !== 0) return;
@@ -337,14 +337,12 @@ const ImageCardInner: FC<ImageCardProps> = ({ element, onDoubleClickLocked }) =>
       id={`image-card-${element.id}`}
       data-element-id={element.id}
       onClick={(e) => {
-        if (activeTool === 'arrow') return;
-        if (activeTool !== 'hand') {
-          e.stopPropagation();
-          setSelectedId(element.id);
-        }
+        if (activeTool !== 'select') return;
+        e.stopPropagation();
+        setSelectedId(element.id);
       }}
       onDoubleClick={(e) => {
-        if (element.isLocked && activeTool !== 'hand' && activeTool !== 'arrow') {
+        if (element.isLocked && activeTool === 'select') {
           e.stopPropagation();
           onDoubleClickLocked?.(e.clientX, e.clientY);
         }

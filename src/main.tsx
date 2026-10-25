@@ -11,6 +11,7 @@ import App from "./App";
 import "./index.css";
 import { useNotesStore } from "./store/useNotesStore";
 import { useUiStore } from "./store/useUiStore";
+import { useAiStore } from "./store/aiStore";
 import * as imageStore from "./store/imageStore";
 
 declare global {
@@ -18,6 +19,7 @@ declare global {
     __inkwell?: {
       notesStore: typeof useNotesStore;
       uiStore: typeof useUiStore;
+      aiStore: typeof useAiStore;
       imageStore: typeof imageStore;
     };
   }
@@ -27,6 +29,7 @@ if (import.meta.env.DEV) {
   window.__inkwell = {
     notesStore: useNotesStore,
     uiStore: useUiStore,
+    aiStore: useAiStore,
     imageStore,
   };
 }

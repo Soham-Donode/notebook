@@ -102,12 +102,12 @@ const PdfPageCardInner: FC<PdfPageCardProps> = ({ element, onDoubleClickLocked }
         target.closest('[data-lock-badge]') ||
         target.closest('[data-resize-handle]')
       ) {
-        if (activeTool === 'arrow') return;
+        if (activeTool !== 'select') return;
         e.stopPropagation();
         return;
       }
 
-      if (activeTool === 'hand' || activeTool === 'arrow') return;
+      if (activeTool !== 'select') return;
       if (e.button !== 0) return;
 
       if (element.isLocked) {
@@ -226,7 +226,7 @@ const PdfPageCardInner: FC<PdfPageCardProps> = ({ element, onDoubleClickLocked }
 
   // Resize pointer handlers
   const handleResizePointerDown = (e: React.PointerEvent, handle: 'se' | 'sw') => {
-    if (element.isLocked || activeTool === 'hand') return;
+    if (element.isLocked || activeTool !== 'select') return;
     e.stopPropagation();
     e.preventDefault();
     if (e.button !== 0) return;
@@ -308,15 +308,13 @@ const PdfPageCardInner: FC<PdfPageCardProps> = ({ element, onDoubleClickLocked }
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if (activeTool === 'arrow') return;
-    if (activeTool !== 'hand') {
-      e.stopPropagation();
-      setSelectedId(element.id);
-    }
+    if (activeTool !== 'select') return;
+    e.stopPropagation();
+    setSelectedId(element.id);
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
-    if (element.isLocked && activeTool !== 'hand' && activeTool !== 'arrow') {
+    if (element.isLocked && activeTool === 'select') {
       e.stopPropagation();
       onDoubleClickLocked?.(e.clientX, e.clientY);
     }

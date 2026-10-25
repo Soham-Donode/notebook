@@ -76,12 +76,17 @@ export async function deletePageImage(key: string) {
   await deleteImageFromDisk(key, folder);
 }
 
+/** Stores an AI-capture screenshot. IndexedDB only — never mirrored into a notebook folder. */
+export async function putAiImage(key: string, blob: Blob) {
+  await set(key, blob);
+}
+
 /** Run once on app start: drop IDB blobs no element references anymore. */
 export async function collectGarbage(liveKeys: Set<string>) {
   for (const k of await keys()) {
     if (
       typeof k === 'string' &&
-      (k.startsWith('page:') || k.startsWith('img:')) &&
+      (k.startsWith('page:') || k.startsWith('img:') || k.startsWith('ai:')) &&
       !liveKeys.has(k)
     ) {
       await del(k);

@@ -16,6 +16,7 @@ import {
   Pencil,
   RotateCcw,
   Scissors,
+  Sparkles,
   Trash2,
   Unlock,
   MousePointer2,
@@ -41,6 +42,7 @@ interface CanvasContextMenuProps {
   canvasY: number;
   onClose: () => void;
   onCreateNote: (canvasX: number, canvasY: number) => void;
+  onAskSelection: () => void;
 }
 
 interface MenuItemProps {
@@ -92,6 +94,7 @@ export const CanvasContextMenu: FC<CanvasContextMenuProps> = ({
   canvasY,
   onClose,
   onCreateNote,
+  onAskSelection,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: x, top: y });
@@ -142,6 +145,8 @@ export const CanvasContextMenu: FC<CanvasContextMenuProps> = ({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        // Consume the key: the canvas-global Escape chain must not also run.
+        e.stopPropagation();
         onClose();
       }
     };
@@ -201,6 +206,14 @@ export const CanvasContextMenu: FC<CanvasContextMenuProps> = ({
     >
       {element ? (
         <>
+          <MenuItem
+            icon={<Sparkles size={14} />}
+            label="Ask"
+            shortcut="⌥A"
+            onClick={run(onAskSelection)}
+          />
+          <Separator />
+
           {element.type === 'text' && (
             <>
               <MenuItem icon={<Pencil size={14} />} label="Edit note" onClick={run(handleEdit)} />

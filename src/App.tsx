@@ -15,6 +15,8 @@ import { exportSectionToPdf } from './utils/exportPdf';
 import { insertElementsAt, isCopiedPlainText } from './utils/elementActions';
 import { CanvasElement, ImageElement, TextElement } from './types';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
+import { AiSidebar } from './components/AiSidebar/AiSidebar';
+import { useAiStore } from './store/aiStore';
 
 export default function App() {
   const activeNotebookId = useNotesStore((state) => state.activeNotebookId);
@@ -153,6 +155,10 @@ export default function App() {
                 }
               }
             }
+          }
+          // AI-capture screenshots referenced by AI threads stay alive too.
+          for (const thread of useAiStore.getState().threads) {
+            if (thread.imageKey) liveKeys.add(thread.imageKey);
           }
           collectGarbage(liveKeys).catch(console.error);
         }
@@ -647,6 +653,10 @@ export default function App() {
             <FloatingToolbar
               onAddDocumentClick={handleImportClick}
               onExportPdfClick={handleExportPdfClick}
+              onAiClick={() => {
+                const ui = useUiStore.getState();
+                ui.setAiSidebarOpen(!ui.isAiSidebarOpen);
+              }}
             />
 
             {/* Async Import Progress Pill — Dynamic Island style */}
@@ -673,6 +683,9 @@ export default function App() {
             onClose={() => setIsCreateModalOpen(false)}
             onCreate={(name) => createNotebook(name)}
           />
+
+          {/* Floating AI sidebar (right) — panel or minimized circular icon */}
+          <AiSidebar />
         </div>
       )}
     </>

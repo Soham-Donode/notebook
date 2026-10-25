@@ -6,6 +6,7 @@ import { TextCard } from './TextCard';
 import { PdfPageCard } from './PdfPageCard';
 import { ImageCard } from './ImageCard';
 import { ArrowCard } from './ArrowCard';
+import { RectCard } from './RectCard';
 
 interface CanvasElementsProps {
   onDoubleClickCanvas?: (canvasX: number, canvasY: number) => void;
@@ -65,6 +66,9 @@ const CanvasElementsInner = ({ onDoubleClickCanvas }: CanvasElementsProps) => {
         }
         if (el.type === 'arrow') {
           return <ArrowCard key={el.id} element={el} />;
+        }
+        if (el.type === 'rect') {
+          return <RectCard key={el.id} element={el} />;
         }
         return null;
       })}

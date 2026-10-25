@@ -9,6 +9,7 @@ import {
 import { useNotesStore } from '../../store/useNotesStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useThemeStore } from '../../store/useThemeStore';
+import { useAiStore } from '../../store/aiStore';
 import {
   calculateCursorZoom,
   clamp,
@@ -17,8 +18,11 @@ import {
   getDotGridStyle,
   screenToCanvas,
 } from '../../utils/canvasMath';
-import { Viewport, ArrowElement, CanvasElement } from '../../types';
+import { captureCanvasRegion } from '../../utils/captureRegion';
+import { getElementsBBox, sendCanvasRegionToAI } from '../../utils/aiActions';
+import { Viewport, ArrowElement, CanvasElement, RectElement } from '../../types';
 import { rememberCopiedPlainText } from '../../utils/elementActions';
+import { resolveShapeColor, withAlpha } from '../../utils/color';
 import { WorldLayer } from './WorldLayer';
 import { CanvasContextMenu } from './CanvasContextMenu';
 
@@ -26,6 +30,13 @@ interface CanvasProps {
   children?: ReactNode;
   onDoubleClickCanvas?: (canvasX: number, canvasY: number) => void;
 }
+
+/** Smallest rectangle that can be drawn with the rectangle tool (canvas units). */
+const MIN_RECT_SIZE = 16;
+/** Default corner radius for drawn rectangles. */
+const DEFAULT_RECT_RADIUS = 14;
+/** Drag distance below which a rectangle click counts as a cancel. */
+const MIN_RECT_DRAG = 4;
 
 export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,6 +67,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
   const clearSelection = useUiStore((state) => state.clearSelection);
   const setEditingId = useUiStore((state) => state.setEditingId);
   const setActiveTool = useUiStore((state) => state.setActiveTool);
+  const shapeColorDefault = useUiStore((state) => state.shapeDefaults.color);
 
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme === 'dark';
@@ -111,10 +123,41 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
   const arrowPointerDownTimeRef = useRef<number>(0);
   const justCommittedArrowRef = useRef(false);
 
+  // Rectangle Drafting State
+  const [rectDraft, setRectDraft] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const rectDraftRef = useRef(rectDraft);
+  rectDraftRef.current = rectDraft;
+  const justCommittedRectRef = useRef(false);
+
+  // AI capture (drag-to-screenshot) State
+  const [aiCaptureDraft, setAiCaptureDraft] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const aiCaptureDraftRef = useRef(aiCaptureDraft);
+  aiCaptureDraftRef.current = aiCaptureDraft;
+  const [isCapturingRegion, setIsCapturingRegion] = useState(false);
+  const aiCaptureBusyRef = useRef(false);
+
   useEffect(() => {
     if (activeTool !== 'arrow') {
       setArrowDraft(null);
       arrowDraftRef.current = null;
+    }
+    if (activeTool !== 'rect') {
+      setRectDraft(null);
+      rectDraftRef.current = null;
+    }
+    if (activeTool !== 'ai-capture') {
+      setAiCaptureDraft(null);
+      aiCaptureDraftRef.current = null;
     }
   }, [activeTool]);
 
@@ -150,7 +193,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         endX,
         endY,
         controlOffset: flip * baseH,
-        color: '#000000',
+        color: useUiStore.getState().shapeDefaults.color || '#000000',
         strokeWidth: 1.8,
         arrowHeadPosition: 'start', // Arrowhead at first clicked point
         zIndex: 500,
@@ -165,6 +208,86 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
     },
     [addElement, setSelectedId, setActiveTool]
   );
+
+  const commitRect = useCallback(
+    (startX: number, startY: number, endX: number, endY: number) => {      const x = Math.min(startX, endX);
+      const y = Math.min(startY, endY);
+      const width = Math.abs(endX - startX);
+      const height = Math.abs(endY - startY);
+
+      const newRect: RectElement = {
+        id: crypto.randomUUID(),
+        type: 'rect',
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.max(MIN_RECT_SIZE, Math.round(width)),
+        height: Math.max(MIN_RECT_SIZE, Math.round(height)),
+        radius: DEFAULT_RECT_RADIUS,
+        color: useUiStore.getState().shapeDefaults.color || '',
+        strokeWidth: 2,
+        // Annotation boxes sit above images but behind notes and arrows.
+        zIndex: 150,
+      };
+
+      addElement(newRect);
+      setSelectedId(newRect.id);
+      justCommittedRectRef.current = true;
+      rectDraftRef.current = null;
+      setRectDraft(null);
+      setActiveTool('select');
+    },
+    [addElement, setSelectedId, setActiveTool]
+  );
+
+  /** Sends the current selection (or context-menu target) to the AI sidebar. */
+  const handleAskSelection = useCallback(() => {
+    if (aiCaptureBusyRef.current) return;
+    const ui = useUiStore.getState();
+    const ids = new Set<string>([
+      ...(ui.selectedId ? [ui.selectedId] : []),
+      ...ui.selectedIds,
+    ]);
+    if (ids.size === 0 || !activeSection) return;
+    const elements = activeSection.elements.filter((el) => ids.has(el.id));
+    const bbox = getElementsBBox(elements);
+    const container = containerRef.current;
+    if (!bbox || !container) return;
+
+    const vp = viewportRef.current;
+    if (bbox.width * vp.zoom < 16 || bbox.height * vp.zoom < 16) {
+      window.dispatchEvent(
+        new CustomEvent('inkwell-toast', { detail: 'Selection is too small to send' })
+      );
+      return;
+    }
+
+    // New capture, one gesture — block re-entry until rasterization completes.
+    aiCaptureBusyRef.current = true;
+    setIsCapturingRegion(true);
+    void (async () => {
+      try {
+        await sendCanvasRegionToAI({
+          container,
+          region: bbox,
+          viewport: vp,
+          firstMessage: 'Explain this in detail.',
+        });
+        window.dispatchEvent(
+          new CustomEvent('inkwell-toast', { detail: 'Selection sent to Ask' })
+        );
+      } catch (err) {
+        console.error('Ask selection failed:', err);
+        window.dispatchEvent(
+          new CustomEvent('inkwell-toast', {
+            detail: 'Could not send selection. Try again.',
+          })
+        );
+      } finally {
+        aiCaptureBusyRef.current = false;
+        setIsCapturingRegion(false);
+      }
+    })();
+  }, [activeSection]);
 
   // Non-passive wheel & native WebKit gesture handler for trackpad pinch zoom & pan
   useEffect(() => {
@@ -366,6 +489,13 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         setIsSpacePressed(true);
       }
 
+      // Alt+A (⌥A on macOS): send the current selection to the Ask sidebar
+      if (!isInput && !e.metaKey && !e.ctrlKey && e.altKey && e.code === 'KeyA') {
+        e.preventDefault();
+        handleAskSelection();
+        return;
+      }
+
       // Quick tool toggle shortcuts: H = Hand tool, V = Select tool, A = Arrow tool
       if (!isInput && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const k = e.key.toLowerCase();
@@ -388,6 +518,9 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
           } else {
             setActiveTool('arrow');
           }
+        } else if (k === 'r' || e.code === 'KeyR') {
+          e.preventDefault();
+          setActiveTool('rect');
         } else if (k === 't' || e.code === 'KeyT') {
           // T = Create new text element at viewport center and start typing
           e.preventDefault();
@@ -500,9 +633,17 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         );
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        if (arrowDraftRef.current) {
+        if (aiCaptureDraftRef.current) {
+          aiCaptureDraftRef.current = null;
+          setAiCaptureDraft(null);
+        } else if (activeTool === 'ai-capture') {
+          setActiveTool('select');
+        } else if (arrowDraftRef.current) {
           arrowDraftRef.current = null;
           setArrowDraft(null);
+        } else if (rectDraftRef.current) {
+          rectDraftRef.current = null;
+          setRectDraft(null);
         } else if (marqueeBoxRef.current) {
           isMarqueeDraggingRef.current = false;
           marqueeBoxRef.current = null;
@@ -528,6 +669,16 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         if (idsToDelete.length > 0) {
           deleteElements(idsToDelete);
           clearSelection();
+        }
+      } else if (
+        e.key === 'Escape' &&
+        (!isInput || Boolean((e.target as HTMLElement | null)?.closest('[data-ai-panel]')))
+      ) {
+        // Escape with nothing else to undo: minimize the AI sidebar
+        // (only when focus sits on the canvas or inside the AI panel itself —
+        // never from other app inputs, e.g. the command palette).
+        if (useUiStore.getState().isAiSidebarOpen) {
+          useUiStore.getState().setAiSidebarOpen(false);
         }
       }
     };
@@ -561,11 +712,59 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
     undo,
     redo,
     onDoubleClickCanvas,
+    handleAskSelection,
   ]);
 
-  // Pointer-based pan (Hand tool, Space+drag, or middle-click drag) or Arrow drafting
+  // Pointer-based pan (Hand tool, Space+drag, or middle-click drag), Arrow drafting, or Rectangle drafting
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+      // AI capture tool: drag a region to screenshot for the AI sidebar
+      if (activeTool === 'ai-capture') {
+        if (e.button !== 0 || aiCaptureBusyRef.current) return;
+        const container = containerRef.current;
+        if (!container) return;
+        e.preventDefault();
+        const rect = container.getBoundingClientRect();
+        const coords = screenToCanvas(e.clientX, e.clientY, viewportRef.current, rect);
+
+        clearSelection();
+        setEditingId(null);
+
+        const initialDraft = {
+          startX: coords.x,
+          startY: coords.y,
+          currentX: coords.x,
+          currentY: coords.y,
+        };
+        aiCaptureDraftRef.current = initialDraft;
+        setAiCaptureDraft(initialDraft);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+
+      // Rectangle tool handling: drag to draw, release to commit
+      if (activeTool === 'rect' && e.button === 0) {
+        const container = containerRef.current;
+        if (!container) return;
+        e.preventDefault();
+        const rect = container.getBoundingClientRect();
+        const coords = screenToCanvas(e.clientX, e.clientY, viewportRef.current, rect);
+
+        clearSelection();
+        setEditingId(null);
+
+        const initialDraft = {
+          startX: coords.x,
+          startY: coords.y,
+          currentX: coords.x,
+          currentY: coords.y,
+        };
+        rectDraftRef.current = initialDraft;
+        setRectDraft(initialDraft);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+
       // Arrow tool handling:
       if (activeTool === 'arrow' && e.button === 0) {
         e.preventDefault();
@@ -640,11 +839,41 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         }
       }
     },
-    [isSpacePressed, activeTool, commitArrow, clearSelection]
+    [isSpacePressed, activeTool, commitArrow, clearSelection, setEditingId]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      if (activeTool === 'ai-capture' && aiCaptureDraftRef.current) {
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const coords = screenToCanvas(e.clientX, e.clientY, viewportRef.current, rect);
+        const updatedDraft = {
+          ...aiCaptureDraftRef.current,
+          currentX: coords.x,
+          currentY: coords.y,
+        };
+        aiCaptureDraftRef.current = updatedDraft;
+        setAiCaptureDraft(updatedDraft);
+        return;
+      }
+
+      if (activeTool === 'rect' && rectDraftRef.current) {
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const coords = screenToCanvas(e.clientX, e.clientY, viewportRef.current, rect);
+        const updatedDraft = {
+          ...rectDraftRef.current,
+          currentX: coords.x,
+          currentY: coords.y,
+        };
+        rectDraftRef.current = updatedDraft;
+        setRectDraft(updatedDraft);
+        return;
+      }
+
       if (activeTool === 'arrow' && arrowDraftRef.current) {
         const container = containerRef.current;
         if (!container) return;
@@ -738,6 +967,90 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
+      if (activeTool === 'ai-capture') {
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          // Pointer may already be released.
+        }
+        const container = containerRef.current;
+        const draft = aiCaptureDraftRef.current;
+        aiCaptureDraftRef.current = null;
+        setAiCaptureDraft(null);
+        if (!container || !draft) return;
+
+        const x = Math.min(draft.startX, draft.currentX);
+        const y = Math.min(draft.startY, draft.currentY);
+        const width = Math.abs(draft.currentX - draft.startX);
+        const height = Math.abs(draft.currentY - draft.startY);
+        const vp = viewportRef.current;
+
+        if (width * vp.zoom < 32 || height * vp.zoom < 32) {
+          window.dispatchEvent(
+            new CustomEvent('inkwell-toast', { detail: 'Capture region too small' })
+          );
+          setActiveTool('select');
+          return;
+        }
+
+        aiCaptureBusyRef.current = true;
+        setIsCapturingRegion(true);
+        void (async () => {
+          try {
+            const shot = await captureCanvasRegion(container, { x, y, width, height }, vp);
+            const threadId = await useAiStore
+              .getState()
+              .startThreadFromCapture(shot.blob, shot.width, shot.height);
+            useAiStore.getState().setActiveThread(threadId);
+            useUiStore.getState().setAiSidebarOpen(true);
+            setActiveTool('select');
+            window.dispatchEvent(
+              new CustomEvent('inkwell-toast', {
+                detail: 'Region captured — ask the AI anything',
+              })
+            );
+          } catch (err) {
+            console.error('AI region capture failed:', err);
+            window.dispatchEvent(
+              new CustomEvent('inkwell-toast', {
+                detail: 'Could not capture that region. Try again.',
+              })
+            );
+            setActiveTool('select');
+          } finally {
+            aiCaptureBusyRef.current = false;
+            setIsCapturingRegion(false);
+          }
+        })();
+        return;
+      }
+
+      if (activeTool === 'rect' && rectDraftRef.current) {
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          // Pointer may already be released.
+        }
+
+        const container = containerRef.current;
+        const draft = rectDraftRef.current;
+        rectDraftRef.current = null;
+        setRectDraft(null);
+
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const coords = screenToCanvas(e.clientX, e.clientY, viewportRef.current, rect);
+          const width = Math.abs(coords.x - draft.startX);
+          const height = Math.abs(coords.y - draft.startY);
+          const zoom = viewportRef.current.zoom;
+          // Require a few screen pixels of movement so a plain click doesn't create a shape.
+          if (width * zoom >= MIN_RECT_DRAG || height * zoom >= MIN_RECT_DRAG) {
+            commitRect(draft.startX, draft.startY, coords.x, coords.y);
+          }
+        }
+        return;
+      }
+
       if (activeTool === 'arrow' && arrowDraftRef.current) {
         const duration = Date.now() - arrowPointerDownTimeRef.current;
         const container = containerRef.current;
@@ -782,7 +1095,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         panStartRef.current = null;
       }
     },
-    [activeTool, isPanning, commitArrow]
+    [activeTool, isPanning, commitArrow, commitRect, setActiveTool]
   );
 
   // Click empty canvas: deselect and exit edit mode
@@ -791,11 +1104,15 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
       justCommittedArrowRef.current = false;
       return;
     }
+    if (justCommittedRectRef.current) {
+      justCommittedRectRef.current = false;
+      return;
+    }
     if (justFinishedMarqueeRef.current) {
       justFinishedMarqueeRef.current = false;
       return;
     }
-    if (activeTool === 'arrow') return;
+    if (activeTool === 'arrow' || activeTool === 'rect' || activeTool === 'ai-capture') return;
     if (e.target === containerRef.current || (e.target as HTMLElement).id === 'canvas-world-layer') {
       clearSelection();
       setEditingId(null);
@@ -804,7 +1121,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
 
   // Double click empty canvas: invoke callback with canvas-space coordinates (only in select mode)
   const handleDoubleClick = (e: React.MouseEvent) => {
-    if (activeTool === 'hand' || activeTool === 'arrow') return;
+    if (activeTool !== 'select') return;
 
     if (
       e.target === containerRef.current ||
@@ -872,7 +1189,11 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
     ? 'cursor-grab'
     : isSpacePressed
     ? 'cursor-grab'
+    : activeTool === 'ai-capture'
+    ? 'cursor-crosshair'
     : activeTool === 'arrow'
+    ? 'cursor-crosshair'
+    : activeTool === 'rect'
     ? 'cursor-crosshair'
     : 'cursor-default';
 
@@ -960,6 +1281,34 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
           );
         })()}
 
+        {/* Rectangle draft preview */}
+        {rectDraft && (() => {
+          const x = Math.min(rectDraft.startX, rectDraft.currentX);
+          const y = Math.min(rectDraft.startY, rectDraft.currentY);
+          const width = Math.abs(rectDraft.currentX - rectDraft.startX);
+          const height = Math.abs(rectDraft.currentY - rectDraft.startY);
+          if (width < 1 && height < 1) return null;
+
+          const draftColor = resolveShapeColor(shapeColorDefault, isDark);
+          const radius = Math.min(DEFAULT_RECT_RADIUS, width / 2, height / 2);
+
+          return (
+            <div
+              className="pointer-events-none absolute"
+              style={{
+                left: `${x}px`,
+                top: `${y}px`,
+                width: `${width}px`,
+                height: `${height}px`,
+                borderRadius: radius,
+                border: `2px solid ${draftColor}`,
+                backgroundColor: withAlpha(draftColor, isDark ? 0.14 : 0.08),
+                zIndex: 9999,
+              }}
+            />
+          );
+        })()}
+
         {/* Marquee Selection Box (Figma Style) */}
         {marqueeBox && (() => {
           const x = Math.min(marqueeBox.startX, marqueeBox.currentX);
@@ -982,6 +1331,53 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         })()}
       </WorldLayer>
 
+      {/* AI capture overlay: dims everything outside the dragged region.
+          data-ai-capture-hide removes these from the capture raster. */}
+      {aiCaptureDraft && (() => {
+        const x = Math.min(aiCaptureDraft.startX, aiCaptureDraft.currentX) * viewport.zoom + viewport.x;
+        const y = Math.min(aiCaptureDraft.startY, aiCaptureDraft.currentY) * viewport.zoom + viewport.y;
+        const width = Math.abs(aiCaptureDraft.currentX - aiCaptureDraft.startX) * viewport.zoom;
+        const height = Math.abs(aiCaptureDraft.currentY - aiCaptureDraft.startY) * viewport.zoom;
+        const draftColor = isDark ? 'rgba(236, 236, 236, 0.9)' : 'rgba(31, 41, 55, 0.9)';
+        return (
+          <div
+            data-ai-capture-hide
+            className="pointer-events-none absolute inset-0 z-[9990]"
+          >
+            <div
+              className="absolute rounded-md"
+              style={{
+                left: `${x}px`,
+                top: `${y}px`,
+                width: `${width}px`,
+                height: `${height}px`,
+                boxShadow: '0 0 0 100000px rgba(17, 24, 39, 0.35)',
+                border: `1.5px dashed ${draftColor}`,
+                background: isDark
+                  ? 'rgba(236, 236, 236, 0.05)'
+                  : 'rgba(31, 41, 55, 0.05)',
+              }}
+            >
+              {width > 64 && height > 34 && (
+                <span className="absolute left-2 top-2 rounded-full bg-gray-900/85 px-2 py-0.5 text-[10px] font-medium text-white whitespace-nowrap">
+                  {Math.round(width / viewport.zoom)} × {Math.round(height / viewport.zoom)}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {isCapturingRegion && (
+        <div
+          data-ai-capture-hide
+          className="pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 z-[9991] px-4 py-2 rounded-full bg-gray-900/90 dark:bg-[#1E1E1E]/95 text-white dark:text-gray-100 text-xs font-medium backdrop-blur-xl shadow-2xl border border-white/10 flex items-center gap-2.5 animate-fade-in"
+        >
+          <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+          <span>Capturing region…</span>
+        </div>
+      )}
+
       {contextMenu && (
         <CanvasContextMenu
           x={contextMenu.x}
@@ -990,6 +1386,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
           canvasX={contextMenu.canvasX}
           canvasY={contextMenu.canvasY}
           onClose={() => setContextMenu(null)}
+          onAskSelection={handleAskSelection}
           onCreateNote={(x, y) => {
             setContextMenu(null);
             onDoubleClickCanvas?.(x, y);

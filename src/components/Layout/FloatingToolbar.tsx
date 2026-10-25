@@ -16,19 +16,22 @@ import {
   Hand,
   MousePointer2,
   CornerUpRight,
+  Square,
   Sun,
   Moon,
   Bold,
   Palette,
+  Sparkles,
 } from 'lucide-react';
 import { useNotesStore } from '../../store/useNotesStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useThemeStore } from '../../store/useThemeStore';
-import { TextElement } from '../../types';
+import { CanvasElement, TextElement } from '../../types';
 
 interface FloatingToolbarProps {
   onAddDocumentClick: () => void;
   onExportPdfClick?: () => void;
+  onAiClick: () => void;
 }
 
 const FONT_FAMILIES = [
@@ -56,12 +59,17 @@ const TEXT_COLORS = [
 export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   onAddDocumentClick,
   onExportPdfClick,
+  onAiClick,
 }) => {
   const selectedId = useUiStore((state) => state.selectedId);
   const activeTool = useUiStore((state) => state.activeTool);
   const setActiveTool = useUiStore((state) => state.setActiveTool);
   const textDefaults = useUiStore((state) => state.textDefaults);
   const setTextDefaults = useUiStore((state) => state.setTextDefaults);
+  const shapeDefaults = useUiStore((state) => state.shapeDefaults);
+  const setShapeDefaults = useUiStore((state) => state.setShapeDefaults);
+  const selectedIds = useUiStore((state) => state.selectedIds);
+  const isAiSidebarOpen = useUiStore((state) => state.isAiSidebarOpen);
 
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
@@ -78,6 +86,12 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   const selectedTextElement = activeSection?.elements.find(
     (el) => el.id === selectedId && el.type === 'text'
   ) as TextElement | undefined;
+
+  const selectedShapes = (activeSection?.elements ?? []).filter(
+    (el): el is Extract<CanvasElement, { type: 'rect' | 'arrow' }> =>
+      (el.id === selectedId || selectedIds.includes(el.id)) && (el.type === 'rect' || el.type === 'arrow')
+  );
+  const currentShapeColor = selectedShapes.length > 0 ? selectedShapes[0].color ?? '' : shapeDefaults.color;
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -106,6 +120,7 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   const currentFontSize = selectedTextElement?.fontSize ?? textDefaults.fontSize;
   const isBold = selectedTextElement?.isBold ?? textDefaults.isBold;
   const currentTextColor = selectedTextElement?.color ?? textDefaults.color;
+  const currentColor = selectedTextElement ? currentTextColor : currentShapeColor;
 
   const handleFontChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -136,10 +151,28 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   };
 
   const handleColorSelect = (col: string) => {
-    setTextDefaults({ color: col });
     setIsColorMenuOpen(false);
+
+    const targets = (activeSection?.elements ?? []).filter(
+      (el) =>
+        (el.id === selectedId || selectedIds.includes(el.id)) &&
+        (el.type === 'text' || el.type === 'rect' || el.type === 'arrow')
+    );
+
+    // Remember the choice for whatever kind of element was targeted.
+    if (targets.some((el) => el.type === 'text') || targets.length === 0) {
+      setTextDefaults({ color: col });
+    }
+    if (targets.some((el) => el.type === 'rect' || el.type === 'arrow') || targets.length === 0) {
+      setShapeDefaults({ color: col });
+    }
+
+    targets.forEach((el, index) => {
+      // First update snapshots undo; the rest join the same undo entry.
+      updateElement(el.id, { color: col } as Partial<CanvasElement>, index === 0);
+    });
+
     if (selectedTextElement) {
-      updateElement(selectedTextElement.id, { color: col }, true);
       window.dispatchEvent(new CustomEvent('inkwell-text-color', { detail: { id: selectedTextElement.id, color: col } }));
     } else {
       window.dispatchEvent(new CustomEvent('inkwell-text-color', { detail: { color: col } }));
@@ -154,7 +187,11 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   };
 
   return (
-    <div className="absolute top-10 left-1/2 -translate-x-1/2 z-40 h-11 flex items-center gap-2 rounded-2xl bg-white/90 dark:bg-[#262626]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/[0.1] shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] px-2.5 py-1.5 select-none no-drag transition-colors max-w-[calc(100vw-2rem)]">
+    <div className={`absolute top-10 left-1/2 -translate-x-1/2 z-40 h-11 flex items-center gap-2 rounded-2xl bg-white/90 dark:bg-[#262626]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/[0.1] shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] px-2.5 py-1.5 select-none no-drag transition-all duration-300 ease-out max-w-[calc(100vw-2rem)] ${
+      isAiSidebarOpen
+        ? 'opacity-0 -translate-y-2 scale-[0.97] pointer-events-none'
+        : 'opacity-100 translate-y-0 scale-100'
+    }`}>
       {/* Import button — documents (PDF / Word / PowerPoint) and images */}
       <button
         type="button"
@@ -166,7 +203,18 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
         <span className="whitespace-nowrap">Import</span>
       </button>
 
-      {/* Hand / Select / Arrow tool segmented toggle */}
+      {/* Ask AI button — toggles the floating AI sidebar */}
+      <button
+        type="button"
+        onClick={onAiClick}
+        title="Ask AI about your canvas"
+        className="h-8 px-3 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-800 dark:text-gray-200 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer border border-black/[0.04] dark:border-white/[0.06] shrink-0 whitespace-nowrap"
+      >
+        <Sparkles size={14} className="text-gray-500 dark:text-gray-400 shrink-0" />
+        <span className="whitespace-nowrap">Ask</span>
+      </button>
+
+      {/* Hand / Select / Arrow / Rectangle tool segmented toggle */}
       <div className="flex items-center p-0.5 rounded-xl bg-gray-100/90 dark:bg-[#333333] border border-black/[0.04] dark:border-white/[0.06] h-8 shrink-0">
         <button
           type="button"
@@ -209,6 +257,18 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
           }`}
         >
           <CornerUpRight size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTool(activeTool === 'rect' ? 'select' : 'rect')}
+          title="Rectangle Tool — R (drag to draw, rounded by default)"
+          className={`w-7 h-7 rounded-lg flex items-center justify-center transition cursor-pointer ${
+            activeTool === 'rect'
+              ? 'bg-black text-white dark:bg-white dark:text-black shadow-sm font-semibold'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+          }`}
+        >
+          <Square size={14} />
         </button>
       </div>
 
@@ -281,7 +341,7 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
           <button
             type="button"
             onClick={() => setIsColorMenuOpen(!isColorMenuOpen)}
-            title="Text Color"
+            title="Text & shape color"
             className="h-6 px-1.5 rounded-lg flex items-center gap-1 text-gray-700 dark:text-gray-300 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition cursor-pointer"
           >
             <div className="flex flex-col items-center justify-center -space-y-0.5">
@@ -289,8 +349,8 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
               <span
                 className="w-3.5 h-[2.5px] rounded-full"
                 style={{
-                  backgroundColor: currentTextColor
-                    ? currentTextColor
+                  backgroundColor: currentColor
+                    ? currentColor
                     : theme === 'dark'
                     ? '#ECECEC'
                     : '#111827',
@@ -304,14 +364,14 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
           {isColorMenuOpen && (
             <div className="absolute top-full right-0 mt-2 p-2.5 rounded-xl bg-white/95 dark:bg-[#262626]/98 backdrop-blur-2xl shadow-[0_12px_32px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)] border border-black/10 dark:border-white/10 z-50 animate-fade-in no-drag w-44">
               <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-1">
-                Text Color
+                Text & shape color
               </div>
               <div className="grid grid-cols-5 gap-1.5 mb-2">
                 {TEXT_COLORS.map((tc) => {
                   const isSelectedColor =
                     tc.value === ''
-                      ? !currentTextColor
-                      : currentTextColor.toLowerCase() === tc.value.toLowerCase();
+                      ? !currentColor
+                      : currentColor.toLowerCase() === tc.value.toLowerCase();
                   return (
                     <button
                       key={tc.label}
@@ -350,7 +410,7 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
                 </label>
                 <input
                   type="color"
-                  value={currentTextColor || (theme === 'dark' ? '#ececec' : '#111827')}
+                  value={currentColor || (theme === 'dark' ? '#ececec' : '#111827')}
                   onChange={(e) => handleColorSelect(e.target.value)}
                   className="w-5 h-5 rounded-md border-0 bg-transparent cursor-pointer p-0"
                   title="Choose custom color"

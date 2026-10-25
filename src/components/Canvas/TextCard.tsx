@@ -157,7 +157,7 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
 
   // Smooth drag handling (supports dragging single or multiple selected elements)
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (activeTool === 'hand' || activeTool === 'arrow') return;
+    if (activeTool !== 'select') return;
     e.stopPropagation();
 
     const { selectedIds, selectedId } = useUiStore.getState();
@@ -269,7 +269,7 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
 
   // Resize pointer event handlers (supporting width wrapping and corner font scaling)
   const handleResizePointerDown = (e: React.PointerEvent, mode: 'width' | 'scale' = 'width') => {
-    if (activeTool === 'hand') return;
+    if (activeTool !== 'select') return;
     e.stopPropagation();
     e.preventDefault();
     if (e.button !== 0) return;
@@ -360,7 +360,7 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
   };
 
   const handleCardPointerDown = (e: React.PointerEvent) => {
-    if (activeTool === 'hand' || activeTool === 'arrow') return;
+    if (activeTool !== 'select') return;
     if (isEditing) return;
     e.stopPropagation();
 
@@ -372,7 +372,7 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
   };
 
   const handleCardDoubleClick = (e: React.MouseEvent) => {
-    if (activeTool === 'hand') return;
+    if (activeTool !== 'select') return;
     e.stopPropagation();
     setSelectedId(element.id);
     setEditingId(element.id);
@@ -425,6 +425,8 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
           fontSize: `${element.fontSize || 18}px`,
           color: element.color || undefined,
           fontWeight: element.isBold ? 'bold' : 'normal',
+          // Caret stays white regardless of the note's text colour.
+          caretColor: '#ffffff',
         }}
       >
         <EditorContent editor={editor} />

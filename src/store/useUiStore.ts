@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { CanvasElement, TextDefaults, ToolMode, UiState } from '../types';
+import { CanvasElement, ShapeDefaults, TextDefaults, ToolMode, UiState } from '../types';
 
 interface UiStore extends UiState {
   setSelectedId: (id: string | null) => void;
@@ -9,6 +9,8 @@ interface UiStore extends UiState {
   setEditingId: (id: string | null) => void;
   setSidebarOpen: (isOpen: boolean) => void;
   toggleSidebar: () => void;
+  setAiSidebarOpen: (isOpen: boolean) => void;
+  toggleAiSidebar: () => void;
   setIsImporting: (isImporting: boolean) => void;
   setImportProgress: (progress: { done: number; total: number } | null) => void;
   setActiveTool: (tool: ToolMode) => void;
@@ -16,6 +18,7 @@ interface UiStore extends UiState {
   incrementPasteCount: () => void;
   resetPasteCount: () => void;
   setTextDefaults: (patch: Partial<TextDefaults>) => void;
+  setShapeDefaults: (patch: Partial<ShapeDefaults>) => void;
   resetUi: () => void;
 }
 
@@ -26,6 +29,10 @@ const DEFAULT_TEXT_DEFAULTS: TextDefaults = {
   fontSize: 18,
   color: '',
   isBold: false,
+};
+
+const DEFAULT_SHAPE_DEFAULTS: ShapeDefaults = {
+  color: '',
 };
 
 function loadTextDefaults(): TextDefaults {
@@ -57,12 +64,14 @@ const initialState: UiState = {
   selectedIds: [],
   editingId: null,
   isSidebarOpen: true,
+  isAiSidebarOpen: false,
   isImporting: false,
   importProgress: null,
   activeTool: 'select',
   clipboardElements: null,
   pasteCount: 0,
   textDefaults: loadTextDefaults(),
+  shapeDefaults: DEFAULT_SHAPE_DEFAULTS,
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -96,6 +105,8 @@ export const useUiStore = create<UiStore>((set) => ({
   setEditingId: (id) => set({ editingId: id }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  setAiSidebarOpen: (isOpen) => set({ isAiSidebarOpen: isOpen }),
+  toggleAiSidebar: () => set((state) => ({ isAiSidebarOpen: !state.isAiSidebarOpen })),
   setIsImporting: (isImporting) => set({ isImporting }),
   setImportProgress: (importProgress) => set({ importProgress }),
   setActiveTool: (activeTool) => set({ activeTool }),
@@ -112,5 +123,7 @@ export const useUiStore = create<UiStore>((set) => ({
       }
       return { textDefaults };
     }),
+  setShapeDefaults: (patch) =>
+    set((state) => ({ shapeDefaults: { ...state.shapeDefaults, ...patch } })),
   resetUi: () => set(initialState),
 }));

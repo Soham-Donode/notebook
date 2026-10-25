@@ -129,7 +129,7 @@ const ArrowCardInner: FC<ArrowCardProps> = ({ element }) => {
   // Handle pointer down for endpoints or curvature
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, handleType: 'start' | 'end' | 'control' | 'body') => {
-      if (activeTool === 'hand' || activeTool === 'arrow') return;
+      if (activeTool !== 'select') return;
       e.stopPropagation();
 
       const { selectedIds, selectedId } = useUiStore.getState();
@@ -316,7 +316,7 @@ const ArrowCardInner: FC<ArrowCardProps> = ({ element }) => {
           strokeLinecap="round"
           style={{ pointerEvents: 'stroke', cursor: activeTool === 'hand' ? 'default' : 'pointer' }}
           onClick={(e) => {
-            if (activeTool !== 'hand' && activeTool !== 'arrow') {
+            if (activeTool === 'select') {
               e.stopPropagation();
               setSelectedId(element.id);
             }
@@ -336,7 +336,7 @@ const ArrowCardInner: FC<ArrowCardProps> = ({ element }) => {
           strokeLinecap="round"
           style={{ pointerEvents: 'stroke', cursor: activeTool === 'hand' ? 'default' : 'pointer' }}
           onClick={(e) => {
-            if (activeTool !== 'hand' && activeTool !== 'arrow') {
+            if (activeTool === 'select') {
               e.stopPropagation();
               setSelectedId(element.id);
             }
@@ -354,7 +354,7 @@ const ArrowCardInner: FC<ArrowCardProps> = ({ element }) => {
             fill={color}
             style={{ pointerEvents: 'all', cursor: activeTool === 'hand' ? 'default' : 'pointer' }}
             onClick={(e) => {
-              if (activeTool !== 'hand' && activeTool !== 'arrow') {
+              if (activeTool === 'select') {
                 e.stopPropagation();
                 setSelectedId(element.id);
               }
@@ -373,7 +373,7 @@ const ArrowCardInner: FC<ArrowCardProps> = ({ element }) => {
             fill={color}
             style={{ pointerEvents: 'all', cursor: activeTool === 'hand' ? 'default' : 'pointer' }}
             onClick={(e) => {
-              if (activeTool !== 'hand' && activeTool !== 'arrow') {
+              if (activeTool === 'select') {
                 e.stopPropagation();
                 setSelectedId(element.id);
               }
