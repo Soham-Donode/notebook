@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Release artifacts (rebuild with npm run build:macos / build:linux / build:windows)
+builds/*/*
+!builds/*/.gitkeep
+!builds/README.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

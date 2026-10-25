@@ -41,7 +41,6 @@ export default function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((msg: string) => {
@@ -199,7 +198,7 @@ export default function App() {
     setEditingId(newTextElement.id);
   };
 
-  // Trigger document file picker (PDF, Word, PowerPoint)
+  // Trigger the shared import file picker (documents + images)
   const handleImportClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -207,28 +206,87 @@ export default function App() {
     }
   };
 
-  // Trigger Image attachment file picker
-  const handleAddImageClick = () => {
-    if (imageInputRef.current) {
-      imageInputRef.current.value = '';
-      imageInputRef.current.click();
+  /** Stores an image in IndexedDB and builds a canvas element centred on (x, y). */
+  const buildImageElement = async (
+    file: File,
+    options: { x: number; y: number; index?: number; maxWidth?: number }
+  ): Promise<ImageElement> => {
+    const { x, y, index = 0, maxWidth = 480 } = options;
+
+    const imageKey = `img:${crypto.randomUUID()}`;
+    await putPageImage(imageKey, file);
+
+    // Measure natural dimensions
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error(`Could not decode ${file.name}`));
+      });
+    } finally {
+      URL.revokeObjectURL(objectUrl);
     }
+
+    const naturalWidth = img.naturalWidth || 400;
+    const naturalHeight = img.naturalHeight || 300;
+    const baseWidth = Math.min(maxWidth, naturalWidth);
+    const baseHeight = Math.round(baseWidth * (naturalHeight / naturalWidth));
+
+    // Stagger multiple files slightly
+    const offset = index * 24;
+
+    return {
+      id: crypto.randomUUID(),
+      type: 'image',
+      name: file.name,
+      x: Math.round(x - baseWidth / 2 + offset),
+      y: Math.round(y - baseHeight / 2 + offset),
+      width: baseWidth,
+      height: baseHeight,
+      imageKey,
+      isLocked: false,
+      zIndex: 100 + index,
+    };
   };
 
-  // Process chosen document file (PDF, DOCX or PPTX)
-  const handleDocumentFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeSection) return;
+  // Places one or more image files at the centre of the visible canvas
+  const addImagesToCanvas = async (files: File[]) => {
+    if (!activeSection || files.length === 0) return;
 
+    const container = document.getElementById('infinite-canvas-container');
+    const rect = container?.getBoundingClientRect() ?? {
+      width: window.innerWidth - 280,
+      height: window.innerHeight,
+    };
+
+    const canvasCenterX = (rect.width / 2 - activeSection.viewport.x) / activeSection.viewport.zoom;
+    const canvasCenterY = (rect.height / 2 - activeSection.viewport.y) / activeSection.viewport.zoom;
+
+    const elements: ImageElement[] = [];
+    for (let i = 0; i < files.length; i++) {
+      try {
+        elements.push(await buildImageElement(files[i], { x: canvasCenterX, y: canvasCenterY, index: i }));
+      } catch (err) {
+        console.error('Failed to load image attachment:', err);
+        showToast(`Could not load image: ${files[i].name}`);
+      }
+    }
+
+    // Batch add — single store update + single undo snapshot
+    if (elements.length > 0) addElements(elements);
+  };
+
+  // Process one document file (PDF, DOCX or PPTX)
+  const importDocumentFile = async (file: File) => {
     const extension = getDocumentExtension(file.name);
     if (extension === 'doc' || extension === 'ppt') {
       showToast(`Legacy .${extension} files aren't supported. Save as .${extension}x or PDF first.`);
-      e.target.value = '';
       return;
     }
     if (extension !== 'pdf' && extension !== 'docx' && extension !== 'pptx') {
       showToast('Unsupported file type. Choose a PDF, DOCX or PPTX file.');
-      e.target.value = '';
       return;
     }
 
@@ -243,7 +301,7 @@ export default function App() {
       };
 
       const geometry = {
-        viewport: activeSection.viewport,
+        viewport: activeSection!.viewport,
         containerRect: { width: rect.width, height: rect.height },
       };
       const onProgress = (done: number, total: number) => {
@@ -268,68 +326,20 @@ export default function App() {
     } finally {
       setIsImporting(false);
       setImportProgress(null);
-      e.target.value = '';
     }
   };
 
-  // Process attached image files
-  const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !activeSection) return;
+  // Single entry point for the Import button: routes documents and images
+  const handleImportFiles = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length === 0 || !activeSection) return;
 
-    const container = document.getElementById('infinite-canvas-container');
-    const rect = container?.getBoundingClientRect() ?? {
-      width: window.innerWidth - 280,
-      height: window.innerHeight,
-    };
+    const images = files.filter((file) => file.type.startsWith('image/'));
+    const documents = files.filter((file) => !file.type.startsWith('image/'));
 
-    const canvasCenterX = (rect.width / 2 - activeSection.viewport.x) / activeSection.viewport.zoom;
-    const canvasCenterY = (rect.height / 2 - activeSection.viewport.y) / activeSection.viewport.zoom;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const imageKey = `img:${crypto.randomUUID()}`;
-        await putPageImage(imageKey, file);
-
-        // Measure natural dimensions
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        img.src = objectUrl;
-
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = reject;
-        });
-        URL.revokeObjectURL(objectUrl);
-
-        const naturalWidth = img.naturalWidth || 400;
-        const naturalHeight = img.naturalHeight || 300;
-        const baseWidth = Math.min(480, naturalWidth);
-        const baseHeight = Math.round(baseWidth * (naturalHeight / naturalWidth));
-
-        // Stagger multiple files slightly
-        const offset = i * 24;
-
-        const newImageElement: ImageElement = {
-          id: crypto.randomUUID(),
-          type: 'image',
-          name: file.name,
-          x: Math.round(canvasCenterX - baseWidth / 2 + offset),
-          y: Math.round(canvasCenterY - baseHeight / 2 + offset),
-          width: baseWidth,
-          height: baseHeight,
-          imageKey,
-          isLocked: false,
-          zIndex: 100 + i,
-        };
-
-        addElement(newImageElement);
-      } catch (err) {
-        console.error('Failed to load image attachment:', err);
-        showToast(`Could not load image: ${file.name}`);
-      }
-    }
+    if (images.length > 0) await addImagesToCanvas(images);
+    for (const file of documents) await importDocumentFile(file);
   };
 
   // Global Clipboard Paste Handler (Priority 1: Screenshot/Image, Priority 2: Canvas Elements, Priority 3: Plain text)
@@ -615,22 +625,13 @@ export default function App() {
           {/* Titlebar drag region for macOS Overlay */}
           <div className="fixed top-0 left-0 right-0 h-10 drag-region z-50 pointer-events-none" />
 
-          {/* Hidden document import input */}
+          {/* Hidden import input — documents and images */}
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            onChange={handleDocumentFileChange}
-            className="hidden"
-          />
-
-          {/* Hidden Image attachment input */}
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
+            accept=".pdf,.doc,.docx,.ppt,.pptx,image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             multiple
-            onChange={handleImageFileChange}
+            onChange={handleImportFiles}
             className="hidden"
           />
 
@@ -645,7 +646,6 @@ export default function App() {
             {/* Floating Toolbar centered over canvas */}
             <FloatingToolbar
               onAddDocumentClick={handleImportClick}
-              onAddImageClick={handleAddImageClick}
               onExportPdfClick={handleExportPdfClick}
             />
 

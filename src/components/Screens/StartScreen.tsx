@@ -1,5 +1,5 @@
 import { FC, useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Notebook, Clock, Trash2, MoreHorizontal, Pencil, Search } from 'lucide-react';
+import { Plus, Notebook, NotepadText, Clock, Trash2, MoreHorizontal, Pencil, Search } from 'lucide-react';
 import { useNotesStore } from '../../store/useNotesStore';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
@@ -190,12 +190,7 @@ export const StartScreen: FC = () => {
               >
                 {/* Top row: icon + menu */}
                 <div className="flex items-center justify-between">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  >
-                    <Notebook size={18} className="text-white/70" />
-                  </div>
+                  <NotepadText size={40} className="text-white/25" strokeWidth={1.5} />
 
                   <div className="flex items-center gap-1.5">
                     <span
@@ -263,7 +258,7 @@ export const StartScreen: FC = () => {
 
                 {/* Bottom: name + date */}
                 <div>
-                  <h3 className="text-[15px] font-semibold text-white/90 truncate group-hover:text-white transition-colors">
+                  <h3 className="text-[20px] font-semibold text-white/90 truncate group-hover:text-white transition-colors">
                     {nb.name}
                   </h3>
                   <p className="text-[11px] text-white/40 mt-1 flex items-center gap-1.5">

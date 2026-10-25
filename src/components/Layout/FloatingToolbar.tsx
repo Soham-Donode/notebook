@@ -13,7 +13,6 @@ import {
   Download,
   RotateCcw,
   Trash2,
-  Paperclip,
   Hand,
   MousePointer2,
   CornerUpRight,
@@ -29,7 +28,6 @@ import { TextElement } from '../../types';
 
 interface FloatingToolbarProps {
   onAddDocumentClick: () => void;
-  onAddImageClick: () => void;
   onExportPdfClick?: () => void;
 }
 
@@ -57,7 +55,6 @@ const TEXT_COLORS = [
 
 export const FloatingToolbar: FC<FloatingToolbarProps> = ({
   onAddDocumentClick,
-  onAddImageClick,
   onExportPdfClick,
 }) => {
   const selectedId = useUiStore((state) => state.selectedId);
@@ -158,25 +155,15 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
 
   return (
     <div className="absolute top-10 left-1/2 -translate-x-1/2 z-40 h-11 flex items-center gap-2 rounded-2xl bg-white/90 dark:bg-[#262626]/95 backdrop-blur-2xl border border-black/[0.08] dark:border-white/[0.1] shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] px-2.5 py-1.5 select-none no-drag transition-colors max-w-[calc(100vw-2rem)]">
-      {/* Import document (PDF / Word / PowerPoint) button */}
+      {/* Import button — documents (PDF / Word / PowerPoint) and images */}
       <button
         type="button"
         onClick={onAddDocumentClick}
-        title="Import PDF, Word or PowerPoint"
+        title="Import PDF, Word, PowerPoint or image"
         className="h-8 px-3 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-800 dark:text-gray-200 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer border border-black/[0.04] dark:border-white/[0.06] shrink-0 whitespace-nowrap"
       >
         <FileUp size={14} className="text-gray-900 dark:text-gray-100 shrink-0" />
         <span className="whitespace-nowrap">Import</span>
-      </button>
-
-      {/* Attachment button for Images */}
-      <button
-        type="button"
-        onClick={onAddImageClick}
-        title="Add image attachment"
-        className="w-8 h-8 rounded-xl bg-gray-100/90 hover:bg-gray-200/80 dark:bg-[#333333] dark:hover:bg-[#3e3e3e] active:scale-95 text-gray-700 dark:text-gray-200 flex items-center justify-center transition cursor-pointer border border-black/[0.04] dark:border-white/[0.06] shrink-0"
-      >
-        <Paperclip size={15} />
       </button>
 
       {/* Hand / Select / Arrow tool segmented toggle */}
