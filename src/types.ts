@@ -101,7 +101,7 @@ export interface ShapeDefaults {
 }
 
 /** Answer-tone presets for the "Ask AI" sidebar. */
-export type AiTone = 'formal' | 'friendly' | 'genz';
+export type AiTone = 'formal' | 'friendly' | 'genz' | 'hinglish';
 
 /** Connection settings for the right-hand "Ask AI" sidebar (persisted to its own localStorage key). */
 export interface AiSettings {

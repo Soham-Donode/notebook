@@ -1,10 +1,10 @@
 import { type FC, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Crop, GraduationCap, Minus, Settings2, Sparkles } from 'lucide-react';
+import { Crop, GraduationCap, Minus, Settings2 } from 'lucide-react';
 import { useAiStore } from '../../store/aiStore';
 import { useUiStore } from '../../store/useUiStore';
 import { AiSettings } from './AiSettings';
 import { AiComposer } from './AiComposer';
-import { AiThreadCard, AiThreadRow } from './AiThreadCard';
+import { AiChatFeed } from './AiThreadCard';
 
 /** Floating pill shown while the ai-capture tool is armed. */
 export const CaptureHint: FC = () => (
@@ -39,7 +39,6 @@ export const AiSidebar: FC = () => {
   const setActiveTool = useUiStore((s) => s.setActiveTool);
   const threads = useAiStore((s) => s.threads);
   const activeThreadId = useAiStore((s) => s.activeThreadId);
-  const setActiveThread = useAiStore((s) => s.setActiveThread);
   const apiKey = useAiStore((s) => s.settings.apiKey);
   const [showSettings, setShowSettings] = useState(false);
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
@@ -205,22 +204,9 @@ export const AiSidebar: FC = () => {
           </>
         ) : (
           <>
-            <div className="flex-1 min-h-0 flex flex-col gap-2 px-2.5 pt-2.5 pb-1">
-              {/* Other captures — compact rows, never steal the chat's height */}
-              <div className="shrink-0 flex flex-col gap-2">
-                {threads
-                  .filter((thread) => thread.id !== activeThreadId)
-                  .map((thread) => (
-                    <AiThreadRow
-                      key={thread.id}
-                      thread={thread}
-                      onOpen={() => setActiveThread(thread.id)}
-                    />
-                  ))}
-              </div>
-
-              {/* Active conversation — fills the whole remaining height */}
-              {activeThread && <AiThreadCard thread={activeThread} />}
+            <div className="flex-1 min-h-0 flex flex-col px-2.5 pt-2.5 pb-1">
+              {/* Single unified chat feed — all captures oldest-to-newest */}
+              <AiChatFeed threads={[...threads].reverse()} />
             </div>
             <AiComposer thread={activeThread} />
           </>

@@ -270,7 +270,6 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
           container,
           region: bbox,
           viewport: vp,
-          firstMessage: 'Explain this in detail.',
         });
         window.dispatchEvent(
           new CustomEvent('inkwell-toast', { detail: 'Selection sent to Ask' })
@@ -487,6 +486,17 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
 
       if (e.code === 'Space' && !isInput && !e.repeat) {
         setIsSpacePressed(true);
+      }
+
+      // Escape always cancels an active AI capture — even when an input has focus.
+      if (e.key === 'Escape' && (activeTool === 'ai-capture' || aiCaptureDraftRef.current)) {
+        e.preventDefault();
+        if (aiCaptureDraftRef.current) {
+          aiCaptureDraftRef.current = null;
+          setAiCaptureDraft(null);
+        }
+        setActiveTool('select');
+        return;
       }
 
       // Alt+A (⌥A on macOS): send the current selection to the Ask sidebar
@@ -1216,7 +1226,12 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
       }}
     >
       <WorldLayer viewport={viewport}>
-        {children}
+        {/* Block all card interactions while the capture crosshair is active.
+            Without this, card elements intercept pointer events and override
+            the crosshair cursor with their own cursor-grab style. */}
+        <div className={activeTool === 'ai-capture' ? 'pointer-events-none' : undefined}>
+          {children}
+        </div>
         {arrowDraft && (() => {
           const { startX, startY, currentX, currentY, isFlipped } = arrowDraft;
           const dx = currentX - startX;

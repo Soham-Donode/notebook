@@ -8,6 +8,7 @@ const TONE_OPTIONS: Array<{ id: AiTone; label: string; blurb: string }> = [
   { id: 'formal', label: 'Formal', blurb: 'Precise, academic, neutral' },
   { id: 'friendly', label: 'Friendly', blurb: 'Warm tutor, approachable' },
   { id: 'genz', label: 'Gen Z', blurb: 'Casual internet energy' },
+  { id: 'hinglish', label: 'Hinglish', blurb: 'Desi vibes, easy to get' },
 ];
 
 interface AiComposerProps {

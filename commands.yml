@@ -2,3 +2,4 @@ clear_cache : cargo clean
 build_dev_app : npm run tauri dev
 build_release_dmg : npm run build:dmg
 # output -> notebook/src-tauri/target/release/bundle/dmg/Notebook_0.1.0_aarch64.dmg
+get_changes_from_remote_merge_them_into_local: git pull --no-rebase origin main

@@ -91,29 +91,15 @@ function MessageBubble({ message }: { message: AiMessage }) {
   );
 }
 
-interface ThreadCardProps {
-  thread: AiThread;
-}
-
-const AiThreadCardInner: FC<ThreadCardProps> = ({ thread }) => {
+/** Inline block for one capture (image + its messages) rendered inside the unified feed. */
+const ThreadBlock: FC<{ thread: AiThread; isLast: boolean }> = ({ thread, isLast }) => {
   const removeThread = useAiStore((s) => s.removeThread);
   const imageUrl = useThreadImageUrl(thread.imageKey);
 
-  const lastMessage = thread.messages[thread.messages.length - 1];
-  const lastTextLength = lastMessage ? lastMessage.text.length : 0;
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // One continuous, ChatGPT-style scroll: the newest content is always at the
-  // bottom. Switching captures also snaps to the latest message.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [thread.id, thread.messages.length, lastTextLength]);
-
   return (
-    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
-      {/* Capture reference header */}
-      <div className="flex items-center justify-between px-1 shrink-0 sticky top-0 bg-transparent pt-0.5 pb-1 -mb-1">
+    <div className={`flex flex-col gap-3 ${!isLast ? 'pb-4 mb-2 border-b border-black/[0.06] dark:border-white/[0.06]' : ''}`}>
+      {/* Capture header */}
+      <div className="flex items-center justify-between px-1 shrink-0">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
           Capture · {formatThreadDate(thread.createdAt)}
         </span>
@@ -127,7 +113,7 @@ const AiThreadCardInner: FC<ThreadCardProps> = ({ thread }) => {
         </button>
       </div>
 
-      {/* Screenshot reference */}
+      {/* Screenshot */}
       {imageUrl ? (
         <div className="shrink-0 rounded-xl overflow-hidden border border-black/[0.05] dark:border-white/[0.07] bg-gray-50 dark:bg-black/20">
           <img
@@ -143,10 +129,69 @@ const AiThreadCardInner: FC<ThreadCardProps> = ({ thread }) => {
         </div>
       )}
 
-      {/* Messages — continuous flow in the same scroll context */}
+      {/* Messages */}
       {thread.messages.map((message) => (
         <MessageBubble key={message.id} message={message} />
       ))}
+    </div>
+  );
+};
+
+interface AiChatFeedProps {
+  /** All threads ordered oldest-first; the last one is the active one. */
+  threads: AiThread[];
+}
+
+/**
+ * Renders every capture + its Q&A in one continuous scrollable feed,
+ * oldest at top, newest at bottom — like a single chat window.
+ */
+const AiChatFeedInner: FC<AiChatFeedProps> = ({ threads }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Track last message length of the very last thread so we can auto-scroll
+  // as tokens stream in.
+  const lastThread = threads[threads.length - 1];
+  const lastMsg = lastThread?.messages[lastThread.messages.length - 1];
+  const lastTextLength = lastMsg ? lastMsg.text.length : 0;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [threads.length, lastThread?.messages.length, lastTextLength]);
+
+  return (
+    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 px-0.5">
+      {threads.map((thread, i) => (
+        <ThreadBlock key={thread.id} thread={thread} isLast={i === threads.length - 1} />
+      ))}
+    </div>
+  );
+};
+
+export const AiChatFeed = memo(AiChatFeedInner);
+
+// ---------------------------------------------------------------------------
+// Legacy exports kept so nothing else breaks during transition.
+// ---------------------------------------------------------------------------
+
+interface ThreadCardProps {
+  thread: AiThread;
+}
+
+const AiThreadCardInner: FC<ThreadCardProps> = ({ thread }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessage = thread.messages[thread.messages.length - 1];
+  const lastTextLength = lastMessage ? lastMessage.text.length : 0;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread.id, thread.messages.length, lastTextLength]);
+
+  return (
+    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
+      <ThreadBlock thread={thread} isLast />
     </div>
   );
 };
@@ -158,7 +203,7 @@ interface ThreadRowProps {
   onOpen: () => void;
 }
 
-/** Row shown in the history popover for an inactive capture thread. */
+/** Row shown in the history list for an inactive capture thread. */
 export const AiThreadRow: FC<ThreadRowProps> = ({ thread, onOpen }) => {
   const removeThread = useAiStore((s) => s.removeThread);
   const imageUrl = useThreadImageUrl(thread.imageKey);
