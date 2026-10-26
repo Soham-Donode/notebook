@@ -1,8 +1,8 @@
 [package]
-name = "inkwell"
+name = "notebook"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "An infinite-canvas notebook for notes, documents and ideas"
+authors = ["Notebook contributors"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +11,7 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "inkwell_lib"
+name = "notebook_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -27,10 +27,19 @@ tauri-plugin-fs = "2"
 tauri-plugin-clipboard-manager = "2"
 
 
-# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+# Release profile is tuned for fast production builds. Fat LTO (`lto = true`)
+# plus a single codegen unit produces a marginally smaller binary, but makes
+# every release build several times slower. Thin LTO keeps most of the runtime
+# performance while allowing codegen to run in parallel.
+#
+# Need the smallest possible binary for a public release? Run the build script
+# with `--quality`, which re-enables fat LTO just for that build.
+# See https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
-codegen-units = 1
-lto = true
+codegen-units = 16
+lto = "thin"
 opt-level = 3
 panic = "abort"
 strip = true
+incremental = false
+debug = false

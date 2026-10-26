@@ -242,7 +242,7 @@ async function rasterizeTextElements(
       card.style.wordBreak = 'break-word';
       // Reuse the on-canvas note typography so lists, headings, quotes and code
       // blocks keep their formatting in the exported PDF.
-      card.className = 'inkwell-note';
+      card.className = 'notebook-note';
       card.innerHTML = el.content;
 
       container.appendChild(card);
@@ -564,10 +564,10 @@ export async function exportSectionToPdf(
     if (savePath) {
       const buffer = doc.output('arraybuffer');
       await writeFile(savePath, new Uint8Array(buffer));
-      window.dispatchEvent(new CustomEvent('inkwell-toast', { detail: 'PDF exported successfully' }));
+      window.dispatchEvent(new CustomEvent('notebook-toast', { detail: 'PDF exported successfully' }));
     }
   } else {
     doc.save(defaultFilename);
-    window.dispatchEvent(new CustomEvent('inkwell-toast', { detail: 'PDF exported successfully' }));
+    window.dispatchEvent(new CustomEvent('notebook-toast', { detail: 'PDF exported successfully' }));
   }
 }

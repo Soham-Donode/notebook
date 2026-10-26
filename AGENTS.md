@@ -1,15 +1,17 @@
 # AGENTS.md
 
-Inkwell is a macOS infinite-canvas notebook: React 19 + Vite 8 + Tailwind v4 + Zustand + TipTap, packaged with Tauri 2. Nearly all logic is TypeScript in `src/`; the Rust side (`src-tauri/src/lib.rs`) only registers plugins.
+Notebook is a macOS infinite-canvas notebook: React 19 + Vite 8 + Tailwind v4 + Zustand + TipTap, packaged with Tauri 2. Nearly all logic is TypeScript in `src/`; the Rust side (`src-tauri/src/lib.rs`) only registers plugins.
 
 ## Commands
 
 - `npm run dev` — Vite at `http://localhost:1420` (strict port). UI, canvas and imports work, but Tauri APIs silently no-op (`isTauriEnvironment()` is false).
 - `npm run tauri dev` — the real app. Required to verify `~/Documents/Notebook` persistence, save dialogs and native clipboard.
-- `npx tsc --noEmit -p .` — quick typecheck.
+- `npm run typecheck` — `tsc --noEmit -p .` (incremental, cached in `node_modules/.tmp`).
 - `npm run build` — the only repo check: `tsc && vite build`. `noUnusedLocals`/`noUnusedParameters` are on, so unused imports fail the build.
-- `npm run build:dmg` — release DMG. The frontend build does not compile Rust; run `cargo check` in `src-tauri/` after Rust edits.
-- No test runner, linter, formatter or CI config exists. Verify behavior in the dev server instead of adding new tooling.
+- `npm run doctor` — checks Node, Rust, platform libraries and optional cross-build tools.
+- `npm run build:current` — production installers for the host OS via `scripts/build.mjs`. Platform-specific aliases are `build:macos`, `build:windows`, `build:linux`; artifacts land in `builds/<platform>/` with checksums. The frontend build does not compile Rust; run `cargo check` in `src-tauri/` after Rust edits.
+- `npm run build:macos -- --arch universal` builds a universal DMG; `--quality` switches to fat LTO for the smallest binary.
+- No test runner or linter exists. Verify behavior in the dev server instead of adding new tooling. GitHub Actions (`.github/workflows/build.yml`) builds all three platforms and is the only CI config.
 
 ## Architecture
 
@@ -21,7 +23,7 @@ Inkwell is a macOS infinite-canvas notebook: React 19 + Vite 8 + Tailwind v4 + Z
 
 ## Persistence (fails silently — read before touching storage)
 
-- Notebook metadata is persisted by Zustand to `localStorage` key `inkwell-v1`. Images are `Blob`s in IndexedDB via `idb-keyval` (keys `page:<uuid>:<n>` for pages, `img:<uuid>` for images), exposed as memoised object URLs by `src/store/imageStore.ts`. Never put data URLs or blobs in persisted state.
+- Notebook metadata is persisted by Zustand to `localStorage` key `notebook-v1`. Images are `Blob`s in IndexedDB via `idb-keyval` (keys `page:<uuid>:<n>` for pages, `img:<uuid>` for images), exposed as memoised object URLs by `src/store/imageStore.ts`. Never put data URLs or blobs in persisted state.
 - In Tauri, `putPageImage` also mirrors images to `~/Documents/Notebook/<notebook folder>/images/<sanitized-key>.jpg`; notebooks autosave to `~/Documents/Notebook/<folder>/notebook.json` on a 350 ms debounce.
 - Disk is authoritative at startup: `hydrateFromDisk()` replaces persisted state with what it finds on disk. Outside Tauri it finds nothing, so **browser-mode notebooks disappear on reload** — test persistence in `npm run tauri dev`.
 - Deleting elements intentionally keeps blobs so undo can restore them; orphaned blobs are removed by `collectGarbage()` at startup. Deleting a notebook removes its folder and blobs. A new image-bearing element type or key prefix must be added to `collectGarbage`, the deletion paths, and App startup's live-key collection.
@@ -44,8 +46,16 @@ Inkwell is a macOS infinite-canvas notebook: React 19 + Vite 8 + Tailwind v4 + Z
 - New Tauri plugin = crate + `.plugin(...)` in `src-tauri/src/lib.rs` + permissions in `src-tauri/capabilities/default.json`. Missing capabilities fail at runtime, not at build.
 - The window uses `titleBarStyle: "Overlay"`; keep the top `.drag-region` strip (and equivalents on full-screen screens) clear of pointer-events, or the window can't be dragged.
 
+## Production builds
+
+- `scripts/build.mjs` is the single build entry point. It detects the host, runs `tauri build` with the right bundles, copies artifacts into `builds/<platform>/` and writes `SHA256SUMS.txt`. Keep the npm aliases in `package.json` pointed at it.
+- `src-tauri/Cargo.toml` intentionally uses thin LTO + 16 codegen units so release builds are fast. Do not put fat LTO back as the default; `--quality` sets `CARGO_PROFILE_RELEASE_LTO=fat` and `CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1` for release-day builds.
+- The macOS DMG window is configured in `bundle.macOS.dmg` in `tauri.conf.json`; its background is `src-tauri/icons/dmg-background.png` (660×400) and Tauri adds the `/Applications` symlink automatically. Use `tauri build --bundles app,dmg`, not a hand-rolled `hdiutil` image, or the drag-to-Applications layout is lost.
+- `bundle.targets` is `"all"` in the base config; `tauri.<platform>.conf.json` narrows it per platform (`app,dmg`, `nsis`, `deb,appimage`), and the build script passes `--bundles` as well.
+- Large frontend assets matter for build and install size. `public/bg.webp` replaced an 8.7 MB PNG; keep new background art compressed.
+
 ## Debugging
 
-- Dev builds expose `window.__inkwell.{notesStore,uiStore,imageStore}` (`src/main.tsx`) — drive the app from devtools or a headless-browser script without UI clicks.
-- Cross-component commands are `window` events: `inkwell-toast`, `inkwell-open-command-palette`, `inkwell-flip-arrow-draft`.
+- Dev builds expose `window.__notebook.{notesStore,uiStore,imageStore}` (`src/main.tsx`) — drive the app from devtools or a headless-browser script without UI clicks.
+- Cross-component commands are `window` events: `notebook-toast`, `notebook-open-command-palette`, `notebook-flip-arrow-draft`.
 - `README.md` is the stock Tauri template and source comments cite a `§N` spec that no longer exists. Trust the code.

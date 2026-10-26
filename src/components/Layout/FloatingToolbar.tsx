@@ -171,9 +171,9 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
     });
 
     if (selectedTextElement) {
-      window.dispatchEvent(new CustomEvent('inkwell-text-color', { detail: { id: selectedTextElement.id, color: col } }));
+      window.dispatchEvent(new CustomEvent('notebook-text-color', { detail: { id: selectedTextElement.id, color: col } }));
     } else {
-      window.dispatchEvent(new CustomEvent('inkwell-text-color', { detail: { color: col } }));
+      window.dispatchEvent(new CustomEvent('notebook-text-color', { detail: { color: col } }));
     }
   };
 
@@ -242,7 +242,7 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
           type="button"
           onClick={() => {
             if (activeTool === 'arrow') {
-              window.dispatchEvent(new CustomEvent('inkwell-flip-arrow-draft'));
+              window.dispatchEvent(new CustomEvent('notebook-flip-arrow-draft'));
             } else {
               setActiveTool('arrow');
             }

@@ -35,7 +35,7 @@ interface PastePlacement {
 }
 
 function showToast(message: string) {
-  window.dispatchEvent(new CustomEvent('inkwell-toast', { detail: message }));
+  window.dispatchEvent(new CustomEvent('notebook-toast', { detail: message }));
 }
 
 function parseElements(raw: string): CanvasElement[] | null {

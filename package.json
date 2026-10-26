@@ -1,18 +1,26 @@
 {
-  "name": "inkwell",
+  "name": "notebook",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "npm run typecheck && vite build",
+    "build:web": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build:dmg": "tauri build && mkdir -p src-tauri/target/release/bundle/dmg && hdiutil create -volname Notebook -srcfolder src-tauri/target/release/bundle/macos/Notebook.app -ov -format UDZO src-tauri/target/release/bundle/dmg/Notebook_0.1.0_aarch64.dmg",
-    "build:macos": "bash scripts/build-macos.sh",
-    "build:linux": "bash scripts/build-linux.sh",
-    "build:windows": "bash scripts/build-windows.sh",
-    "build:all": "npm run build:macos && npm run build:linux && npm run build:windows"
+    "doctor": "node scripts/doctor.mjs",
+    "build:current": "node scripts/build.mjs",
+    "build:macos": "node scripts/build.mjs macos",
+    "build:windows": "node scripts/build.mjs windows",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:dmg": "node scripts/build.mjs macos",
+    "clean": "node scripts/clean.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

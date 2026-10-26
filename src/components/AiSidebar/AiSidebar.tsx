@@ -15,7 +15,7 @@ export const CaptureHint: FC = () => (
   </div>
 );
 
-const AI_SIDEBAR_WIDTH_KEY = 'inkwell_ai_sidebar_width';
+const AI_SIDEBAR_WIDTH_KEY = 'notebook_ai_sidebar_width';
 const MIN_AI_SIDEBAR_WIDTH = 340;
 const MAX_AI_SIDEBAR_WIDTH = 760;
 const DEFAULT_AI_SIDEBAR_WIDTH = 400;

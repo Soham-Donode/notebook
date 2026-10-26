@@ -22,7 +22,7 @@ interface UiStore extends UiState {
   resetUi: () => void;
 }
 
-const TEXT_DEFAULTS_STORAGE_KEY = 'inkwell_text_defaults';
+const TEXT_DEFAULTS_STORAGE_KEY = 'notebook_text_defaults';
 
 const DEFAULT_TEXT_DEFAULTS: TextDefaults = {
   fontFamily: 'Comic Sans MS, Comic Neue, cursive, sans-serif',

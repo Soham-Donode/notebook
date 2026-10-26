@@ -173,8 +173,8 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         setArrowDraft((prev) => (prev ? { ...prev, isFlipped: nextFlipped } : null));
       }
     };
-    window.addEventListener('inkwell-flip-arrow-draft', handleFlipEvent);
-    return () => window.removeEventListener('inkwell-flip-arrow-draft', handleFlipEvent);
+    window.addEventListener('notebook-flip-arrow-draft', handleFlipEvent);
+    return () => window.removeEventListener('notebook-flip-arrow-draft', handleFlipEvent);
   }, []);
 
   const commitArrow = useCallback(
@@ -256,7 +256,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
     const vp = viewportRef.current;
     if (bbox.width * vp.zoom < 16 || bbox.height * vp.zoom < 16) {
       window.dispatchEvent(
-        new CustomEvent('inkwell-toast', { detail: 'Selection is too small to send' })
+        new CustomEvent('notebook-toast', { detail: 'Selection is too small to send' })
       );
       return;
     }
@@ -272,12 +272,12 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
           viewport: vp,
         });
         window.dispatchEvent(
-          new CustomEvent('inkwell-toast', { detail: 'Selection sent to Ask' })
+          new CustomEvent('notebook-toast', { detail: 'Selection sent to Ask' })
         );
       } catch (err) {
         console.error('Ask selection failed:', err);
         window.dispatchEvent(
-          new CustomEvent('inkwell-toast', {
+          new CustomEvent('notebook-toast', {
             detail: 'Could not send selection. Try again.',
           })
         );
@@ -459,7 +459,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
       rememberCopiedPlainText(plainText);
 
       window.dispatchEvent(
-        new CustomEvent('inkwell-toast', {
+        new CustomEvent('notebook-toast', {
           detail: `Copied ${elementsToCopy.length} item${elementsToCopy.length > 1 ? 's' : ''}`,
         })
       );
@@ -640,7 +640,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
         }
 
         window.dispatchEvent(
-          new CustomEvent('inkwell-toast', {
+          new CustomEvent('notebook-toast', {
             detail: `Duplicated ${duplicatedElements.length} item${duplicatedElements.length > 1 ? 's' : ''}`,
           })
         );
@@ -1000,7 +1000,7 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
 
         if (width * vp.zoom < 32 || height * vp.zoom < 32) {
           window.dispatchEvent(
-            new CustomEvent('inkwell-toast', { detail: 'Capture region too small' })
+            new CustomEvent('notebook-toast', { detail: 'Capture region too small' })
           );
           setActiveTool('select');
           return;
@@ -1018,14 +1018,14 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
             useUiStore.getState().setAiSidebarOpen(true);
             setActiveTool('select');
             window.dispatchEvent(
-              new CustomEvent('inkwell-toast', {
+              new CustomEvent('notebook-toast', {
                 detail: 'Region captured — ask the AI anything',
               })
             );
           } catch (err) {
             console.error('AI region capture failed:', err);
             window.dispatchEvent(
-              new CustomEvent('inkwell-toast', {
+              new CustomEvent('notebook-toast', {
                 detail: 'Could not capture that region. Try again.',
               })
             );

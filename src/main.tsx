@@ -16,7 +16,7 @@ import * as imageStore from "./store/imageStore";
 
 declare global {
   interface Window {
-    __inkwell?: {
+    __notebook?: {
       notesStore: typeof useNotesStore;
       uiStore: typeof useUiStore;
       aiStore: typeof useAiStore;
@@ -26,7 +26,7 @@ declare global {
 }
 
 if (import.meta.env.DEV) {
-  window.__inkwell = {
+  window.__notebook = {
     notesStore: useNotesStore,
     uiStore: useUiStore,
     aiStore: useAiStore,

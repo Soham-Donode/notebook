@@ -124,7 +124,7 @@ function selectElements(elements: CanvasElement[]) {
 }
 
 function showToast(message: string) {
-  window.dispatchEvent(new CustomEvent('inkwell-toast', { detail: message }));
+  window.dispatchEvent(new CustomEvent('notebook-toast', { detail: message }));
 }
 
 function getPlainText(elements: CanvasElement[]): string {

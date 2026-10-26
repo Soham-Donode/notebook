@@ -8,7 +8,7 @@ interface ThemeState {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = 'inkwell-theme';
+const STORAGE_KEY = 'notebook-theme';
 
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'light';

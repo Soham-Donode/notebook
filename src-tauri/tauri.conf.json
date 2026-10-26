@@ -28,13 +28,46 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": "all",
+    "publisher": "Notebook",
+    "category": "Productivity",
+    "shortDescription": "An infinite-canvas notebook for notes, documents and ideas.",
+    "longDescription": "Notebook is a local-first, infinite-canvas notebook. Import PDFs, Word documents and PowerPoint slides, arrange notes and images freely, connect ideas with arrows and export any section as a PDF.",
+    "copyright": "Copyright © 2026 Notebook",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "dmg": {
+        "background": "icons/dmg-background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        }
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "utils"
+      }
+    }
   }
 }

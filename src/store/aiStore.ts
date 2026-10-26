@@ -4,7 +4,7 @@ import type { AiMessage, AiSettings, AiThread, AiTone } from '../types';
 import { deletePageImage, getPageBlob, putAiImage } from './imageStore';
 import { loadImageBase64, streamGemini, type GeminiTurn } from '../utils/aiClient';
 
-export const AI_SYSTEM_PROMPT = `You are the AI study companion inside Inkwell, an infinite-canvas personal notebook. The user shares screenshots of their canvas — diagrams, textbook pages, lecture slides, sketches, charts, code, handwriting, math, or anything else — and asks questions about them.
+export const AI_SYSTEM_PROMPT = `You are the AI study companion inside Notebook, an infinite-canvas personal notebook. The user shares screenshots of their canvas — diagrams, textbook pages, lecture slides, sketches, charts, code, handwriting, math, or anything else — and asks questions about them.
 
 Be concise by default. Use the fewest words needed to be fully accurate and clear — cut filler, redundancy and over-explanation. Every sentence must earn its place. If the user asks to "explain in detail" or "elaborate", then expand fully.
 
@@ -216,7 +216,7 @@ export const useAiStore = create<AiStore>()(
       },
     }),
     {
-      name: 'inkwell-ai-v1',
+      name: 'notebook-ai-v1',
       version: 1,
       partialize: (s) => ({
         settings: {

@@ -58,7 +58,7 @@ export async function exportNotebookBundle(notebook: Notebook): Promise<void> {
   };
 
   const jsonString = JSON.stringify(bundle, null, 2);
-  const defaultFilename = `${notebook.name}.inkwell.json`;
+  const defaultFilename = `${notebook.name}.notebook.json`;
 
   // @ts-expect-error — Tauri check
   const isTauri = typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__);
@@ -66,7 +66,7 @@ export async function exportNotebookBundle(notebook: Notebook): Promise<void> {
   if (isTauri) {
     const savePath = await save({
       defaultPath: defaultFilename,
-      filters: [{ name: 'Inkwell Notebook Bundle', extensions: ['inkwell.json', 'json'] }],
+      filters: [{ name: 'Notebook Bundle', extensions: ['notebook.json', 'json'] }],
     });
     if (savePath) {
       await writeFile(savePath, new TextEncoder().encode(jsonString));
@@ -114,7 +114,7 @@ export async function saveNotebookToDisk(notebook: Notebook): Promise<string | n
     const folder = notebook.folderPath.endsWith('/')
       ? notebook.folderPath.slice(0, -1)
       : notebook.folderPath;
-    const targetPath = `${folder}/${safeName}.inkwell.json`;
+    const targetPath = `${folder}/${safeName}.notebook.json`;
 
     await writeFile(targetPath, new TextEncoder().encode(jsonString));
     console.log(`[STORAGE] Saved notebook "${notebook.name}" to disk at: ${targetPath}`);

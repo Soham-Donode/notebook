@@ -61,8 +61,8 @@ export default function App() {
         showToastRef.current(customEv.detail);
       }
     };
-    window.addEventListener('inkwell-toast', onToast);
-    return () => window.removeEventListener('inkwell-toast', onToast);
+    window.addEventListener('notebook-toast', onToast);
+    return () => window.removeEventListener('notebook-toast', onToast);
   }, []);
 
   // Global shortcuts: Command + K (Search), Ctrl + B (Sidebar), Cmd+← (Home)
@@ -106,11 +106,11 @@ export default function App() {
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown, true);
-    window.addEventListener('inkwell-open-command-palette', handleOpenCommandPalette);
+    window.addEventListener('notebook-open-command-palette', handleOpenCommandPalette);
 
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown, true);
-      window.removeEventListener('inkwell-open-command-palette', handleOpenCommandPalette);
+      window.removeEventListener('notebook-open-command-palette', handleOpenCommandPalette);
     };
   }, []);
 
@@ -136,7 +136,7 @@ export default function App() {
         if (nbs && nbs.length > 0) {
           // Guarantee the app opens directly with the last active or recent notebook, never the home screen
           if (!state.activeNotebookId || !nbs.some((n) => n.id === state.activeNotebookId)) {
-            const lastSavedId = localStorage.getItem('inkwell_last_opened_notebook');
+            const lastSavedId = localStorage.getItem('notebook_last_opened_notebook');
             const found = nbs.find((n) => n.id === lastSavedId);
             const target = found || [...nbs].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))[0];
             if (target) {

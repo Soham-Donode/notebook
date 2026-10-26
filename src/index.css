@@ -76,7 +76,7 @@
   /* Canvas note typography — also reused by the PDF export clone.
      Tailwind's preflight strips list markers, heading sizes and blockquote
      spacing, so every list typed into a note looked like plain text. */
-  .inkwell-note {
+  .notebook-note {
     outline: none;
     min-height: 1.8em;
     line-height: 1.55;
@@ -85,57 +85,57 @@
     text-wrap: pretty;
   }
 
-  .inkwell-note p {
+  .notebook-note p {
     margin: 0 0 0.45em 0;
   }
-  .inkwell-note p:last-child {
+  .notebook-note p:last-child {
     margin-bottom: 0;
   }
 
-  .inkwell-note ul,
-  .inkwell-note ol {
+  .notebook-note ul,
+  .notebook-note ol {
     margin: 0.15em 0 0.45em;
     padding-left: 1.4em;
   }
-  .inkwell-note ul { list-style: disc outside; }
-  .inkwell-note ol { list-style: decimal outside; }
-  .inkwell-note ul ul { list-style-type: circle; }
-  .inkwell-note ul ul ul { list-style-type: square; }
-  .inkwell-note li { margin: 0.08em 0; }
-  .inkwell-note li::marker { color: currentColor; }
-  .inkwell-note li > p { margin: 0; }
-  .inkwell-note li > ul,
-  .inkwell-note li > ol { margin: 0.05em 0 0.1em; }
+  .notebook-note ul { list-style: disc outside; }
+  .notebook-note ol { list-style: decimal outside; }
+  .notebook-note ul ul { list-style-type: circle; }
+  .notebook-note ul ul ul { list-style-type: square; }
+  .notebook-note li { margin: 0.08em 0; }
+  .notebook-note li::marker { color: currentColor; }
+  .notebook-note li > p { margin: 0; }
+  .notebook-note li > ul,
+  .notebook-note li > ol { margin: 0.05em 0 0.1em; }
 
-  .inkwell-note h1,
-  .inkwell-note h2,
-  .inkwell-note h3 {
+  .notebook-note h1,
+  .notebook-note h2,
+  .notebook-note h3 {
     font-weight: 700;
     line-height: 1.25;
     margin: 0.55em 0 0.25em;
   }
-  .inkwell-note h1 { font-size: 1.55em; }
-  .inkwell-note h2 { font-size: 1.3em; }
-  .inkwell-note h3 { font-size: 1.12em; }
-  .inkwell-note h1:first-child,
-  .inkwell-note h2:first-child,
-  .inkwell-note h3:first-child { margin-top: 0; }
+  .notebook-note h1 { font-size: 1.55em; }
+  .notebook-note h2 { font-size: 1.3em; }
+  .notebook-note h3 { font-size: 1.12em; }
+  .notebook-note h1:first-child,
+  .notebook-note h2:first-child,
+  .notebook-note h3:first-child { margin-top: 0; }
 
-  .inkwell-note strong { font-weight: 700; }
-  .inkwell-note em { font-style: italic; }
-  .inkwell-note u { text-decoration: underline; text-underline-offset: 2px; }
-  .inkwell-note s { text-decoration: line-through; }
+  .notebook-note strong { font-weight: 700; }
+  .notebook-note em { font-style: italic; }
+  .notebook-note u { text-decoration: underline; text-underline-offset: 2px; }
+  .notebook-note s { text-decoration: line-through; }
 
-  .inkwell-note code {
+  .notebook-note code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.9em;
     padding: 0.08em 0.3em;
     border-radius: 4px;
     background: rgba(0, 0, 0, 0.06);
   }
-  html.dark .inkwell-note code { background: rgba(255, 255, 255, 0.1); }
+  html.dark .notebook-note code { background: rgba(255, 255, 255, 0.1); }
 
-  .inkwell-note pre {
+  .notebook-note pre {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.86em;
     line-height: 1.45;
@@ -146,32 +146,32 @@
     white-space: pre-wrap;
     overflow-x: auto;
   }
-  html.dark .inkwell-note pre { background: rgba(255, 255, 255, 0.08); }
-  .inkwell-note pre code {
+  html.dark .notebook-note pre { background: rgba(255, 255, 255, 0.08); }
+  .notebook-note pre code {
     background: transparent;
     padding: 0;
     font-size: inherit;
     border-radius: 0;
   }
 
-  .inkwell-note blockquote {
+  .notebook-note blockquote {
     margin: 0.3em 0 0.5em;
     padding-left: 0.75em;
     border-left: 3px solid rgba(107, 114, 128, 0.45);
     color: rgba(107, 114, 128, 1);
   }
-  html.dark .inkwell-note blockquote {
+  html.dark .notebook-note blockquote {
     color: rgba(156, 163, 175, 1);
     border-left-color: rgba(156, 163, 175, 0.45);
   }
 
-  .inkwell-note hr {
+  .notebook-note hr {
     border: 0;
     border-top: 1px solid rgba(107, 114, 128, 0.3);
     margin: 0.6em 0;
   }
 
-  .inkwell-note a {
+  .notebook-note a {
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -179,7 +179,7 @@
   }
 
   /* Placeholder shown while editing an empty note */
-  .inkwell-note .is-empty::before {
+  .notebook-note .is-empty::before {
     content: attr(data-placeholder);
     float: left;
     height: 0;
@@ -187,36 +187,36 @@
     opacity: 0.4;
   }
 
-  .inkwell-note ::selection { background: rgba(59, 130, 246, 0.22); }
-  html.dark .inkwell-note ::selection { background: rgba(96, 165, 250, 0.3); }
+  .notebook-note ::selection { background: rgba(59, 130, 246, 0.22); }
+  html.dark .notebook-note ::selection { background: rgba(96, 165, 250, 0.3); }
 
   /* Checklists */
-  .inkwell-note ul[data-type='taskList'] {
+  .notebook-note ul[data-type='taskList'] {
     list-style: none;
     padding-left: 0.15em;
   }
-  .inkwell-note ul[data-type='taskList'] li {
+  .notebook-note ul[data-type='taskList'] li {
     display: flex;
     align-items: flex-start;
     gap: 0.45em;
   }
-  .inkwell-note ul[data-type='taskList'] li > label {
+  .notebook-note ul[data-type='taskList'] li > label {
     flex: 0 0 auto;
     margin-top: 0.22em;
     user-select: none;
   }
-  .inkwell-note ul[data-type='taskList'] li > div {
+  .notebook-note ul[data-type='taskList'] li > div {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .inkwell-note ul[data-type='taskList'] input[type='checkbox'] {
+  .notebook-note ul[data-type='taskList'] input[type='checkbox'] {
     width: 0.95em;
     height: 0.95em;
     margin: 0;
     accent-color: currentColor;
     cursor: pointer;
   }
-  .inkwell-note ul[data-type='taskList'] li[data-checked='true'] > div {
+  .notebook-note ul[data-type='taskList'] li[data-checked='true'] > div {
     opacity: 0.55;
     text-decoration: line-through;
   }

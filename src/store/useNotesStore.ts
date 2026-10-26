@@ -119,7 +119,7 @@ export const useNotesStore = create<NotesState>()(
           await deleteNotebookFromDisk(notebook);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(
-              new CustomEvent('inkwell-toast', {
+              new CustomEvent('notebook-toast', {
                 detail: `Notebook "${notebook.name}" deleted`,
               })
             );
@@ -155,7 +155,7 @@ export const useNotesStore = create<NotesState>()(
           return;
         }
         try {
-          localStorage.setItem('inkwell_last_opened_notebook', id);
+          localStorage.setItem('notebook_last_opened_notebook', id);
         } catch (_) {}
         const notebook = get().notebooks.find((nb) => nb.id === id);
         set({
@@ -283,7 +283,7 @@ export const useNotesStore = create<NotesState>()(
 
       navigateToSection: (notebookId: string, sectionId: string) => {
         try {
-          localStorage.setItem('inkwell_last_opened_notebook', notebookId);
+          localStorage.setItem('notebook_last_opened_notebook', notebookId);
         } catch (_) {}
         set({
           activeNotebookId: notebookId,
@@ -820,7 +820,7 @@ export const useNotesStore = create<NotesState>()(
           // Restore the last active notebook/section selection
           let nextActiveId = get().activeNotebookId;
           if (!nextActiveId && typeof localStorage !== 'undefined') {
-            nextActiveId = localStorage.getItem('inkwell_last_opened_notebook');
+            nextActiveId = localStorage.getItem('notebook_last_opened_notebook');
           }
           let activeNb = notebooksToLoad.find((n) => n.id === nextActiveId);
 
@@ -836,7 +836,7 @@ export const useNotesStore = create<NotesState>()(
 
           if (nextActiveId) {
             try {
-              localStorage.setItem('inkwell_last_opened_notebook', nextActiveId);
+              localStorage.setItem('notebook_last_opened_notebook', nextActiveId);
             } catch (_) {}
           }
 
@@ -856,7 +856,7 @@ export const useNotesStore = create<NotesState>()(
       },
     }),
     {
-      name: 'inkwell-v1',
+      name: 'notebook-v1',
       version: SCHEMA_VERSION,
       partialize: (s) => ({
         notebooks: s.notebooks,
@@ -884,7 +884,7 @@ export const useNotesStore = create<NotesState>()(
           // Ensure active notebook is restored on startup
           let targetId = state.activeNotebookId;
           if (!targetId && typeof localStorage !== 'undefined') {
-            targetId = localStorage.getItem('inkwell_last_opened_notebook');
+            targetId = localStorage.getItem('notebook_last_opened_notebook');
           }
           let currentNb = state.notebooks.find((nb) => nb.id === targetId);
           if (!currentNb && state.notebooks.length > 0) {

@@ -71,7 +71,10 @@ export const StartScreen: FC = () => {
     <div
       className="w-full h-full select-none flex flex-col transition-colors relative overflow-y-auto"
       style={{
-        backgroundImage: 'url(/bg.png)',
+        // WebP keeps the background tiny; the colour is a fallback for older
+        // webviews that cannot decode it.
+        backgroundColor: '#141210',
+        backgroundImage: 'url(/bg.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
@@ -355,7 +358,7 @@ export const StartScreen: FC = () => {
           if (confirmDelete) {
             await deleteNotebook(confirmDelete.id);
             setConfirmDelete(null);
-            window.dispatchEvent(new CustomEvent('inkwell-toast', { detail: 'Notebook deleted' }));
+            window.dispatchEvent(new CustomEvent('notebook-toast', { detail: 'Notebook deleted' }));
           }
         }}
         onCancel={() => setConfirmDelete(null)}

@@ -302,7 +302,7 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
     editable: isEditing,
     editorProps: {
       attributes: {
-        class: 'inkwell-note',
+        class: 'notebook-note',
         spellcheck: 'true',
         autocorrect: 'on',
         autocapitalize: 'sentences',
@@ -343,7 +343,7 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
           if (item.type.startsWith('image/')) {
             event.preventDefault();
             window.dispatchEvent(
-              new CustomEvent('inkwell-toast', {
+              new CustomEvent('notebook-toast', {
                 detail: 'Images go on the canvas — a note can only hold text',
               })
             );
@@ -463,8 +463,8 @@ const TextCardInner: FC<TextCardProps> = ({ element }) => {
       }
     };
 
-    window.addEventListener('inkwell-text-color', onSetColor);
-    return () => window.removeEventListener('inkwell-text-color', onSetColor);
+    window.addEventListener('notebook-text-color', onSetColor);
+    return () => window.removeEventListener('notebook-text-color', onSetColor);
   }, [editor, element.id, isEditing]);
 
   const handleBlur = useCallback(
