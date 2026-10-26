@@ -240,6 +240,9 @@ async function rasterizeTextElements(
       card.style.fontWeight = el.isBold ? 'bold' : 'normal';
       card.style.lineHeight = '1.6';
       card.style.wordBreak = 'break-word';
+      // Reuse the on-canvas note typography so lists, headings, quotes and code
+      // blocks keep their formatting in the exported PDF.
+      card.className = 'inkwell-note';
       card.innerHTML = el.content;
 
       container.appendChild(card);

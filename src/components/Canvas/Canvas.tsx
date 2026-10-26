@@ -547,6 +547,9 @@ export const Canvas: FC<CanvasProps> = ({ children, onDoubleClickCanvas }) => {
 
       // Keyboard shortcuts per §9.1 and Zoom controls
       if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') {
+        // Text fields and the note editor own their native undo history; running
+        // the canvas undo at the same time made Cmd+Z undo two different things.
+        if (isInput) return;
         e.preventDefault();
         if (e.shiftKey) {
           redo();

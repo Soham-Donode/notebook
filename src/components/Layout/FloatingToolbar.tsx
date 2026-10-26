@@ -143,10 +143,8 @@ export const FloatingToolbar: FC<FloatingToolbarProps> = ({
       const nextBold = !selectedTextElement.isBold;
       setTextDefaults({ isBold: nextBold });
       updateElement(selectedTextElement.id, { isBold: nextBold }, true);
-      window.dispatchEvent(new CustomEvent('inkwell-text-bold', { detail: { id: selectedTextElement.id, isBold: nextBold } }));
     } else {
       setTextDefaults({ isBold: !textDefaults.isBold });
-      window.dispatchEvent(new CustomEvent('inkwell-text-bold', { detail: {} }));
     }
   };
 
