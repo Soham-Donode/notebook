@@ -5,13 +5,13 @@ import { collectGarbage, putPageImage } from './store/imageStore';
 import { initDocumentsStorage, saveNotebooksToDisk } from './services/storageService';
 import { StartScreen } from './components/Screens/StartScreen';
 import { CreateNotebookDialog } from './components/Screens/CreateNotebookDialog';
+import { PdfExportDialog } from './components/Screens/PdfExportDialog';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Canvas } from './components/Canvas/Canvas';
 import { FloatingToolbar } from './components/Layout/FloatingToolbar';
 import { CanvasElements } from './components/Canvas/CanvasElements';
 import { processPdfFile } from './utils/pdfProcessor';
 import { getDocumentExtension, processDocxFile, processPptxFile } from './utils/documentProcessor';
-import { exportSectionToPdf } from './utils/exportPdf';
 import { insertElementsAt, isCopiedPlainText } from './utils/elementActions';
 import { CanvasElement, ImageElement, TextElement } from './types';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
@@ -40,6 +40,7 @@ export default function App() {
   const setImportProgress = useUiStore((state) => state.setImportProgress);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -593,18 +594,16 @@ export default function App() {
   }, [activeNotebookId, activeSection, addElement, addElements, setSelectedId, setSelectedIds]);
 
   // Export current section to PDF
-  const handleExportPdfClick = async () => {
+  const handleExportPdfClick = () => {
     if (!activeNotebook || !activeSection) return;
-    try {
-      await exportSectionToPdf(
-        activeSection.elements,
-        activeNotebook.name,
-        activeSection.name
-      );
-    } catch (err) {
-      console.error('Failed to export PDF:', err);
-      showToast('Export failed. Please try again.');
+    if (activeSection.elements.length === 0) {
+      showToast('Nothing to export — add a note or import a page first.');
+      return;
     }
+    // Leaving the editor flushes TipTap's buffered keystrokes into the store,
+    // so the PDF always contains the very last character that was typed.
+    setEditingId(null);
+    setIsPdfDialogOpen(true);
   };
 
   return (
@@ -683,6 +682,20 @@ export default function App() {
             onClose={() => setIsCreateModalOpen(false)}
             onCreate={(name) => createNotebook(name)}
           />
+
+          {/* Export section as PDF */}
+          {activeSection && (
+            <PdfExportDialog
+              isOpen={isPdfDialogOpen}
+              onClose={() => setIsPdfDialogOpen(false)}
+              elements={activeSection.elements}
+              notebookName={activeNotebook.name}
+              sectionName={activeSection.name}
+              onExported={(pages) =>
+                showToast(`Exported ${pages} page${pages === 1 ? '' : 's'} to PDF`)
+              }
+            />
+          )}
 
           {/* Floating AI sidebar (right) — panel or minimized circular icon */}
           <AiSidebar />

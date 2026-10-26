@@ -45,7 +45,7 @@ then keep everything on your own machine.</p>
 | **📄 Documents become cards** | Drop in a PDF, Word file or PowerPoint deck. Every page is rasterised to a consistent size and becomes a movable object. |
 | **🖋 Notes & arrows** | Rich-text notes with font, size, weight and colour controls. Curved arrows draw the connections between ideas. |
 | **🗂 Notebooks & sections** | Keep work separated, search across it, multi-select, duplicate, copy and paste. Lock imported pages so they stay put. |
-| **📤 Export** | Turn any section into a PDF in one click. |
+| **📤 Export** | Turn any section into a paginated PDF — paper size, orientation and headers, with page breaks that land in the gaps so notes and pages are never cut in half. |
 | **🔒 Local-first** | Notebooks live in `~/Documents/Notebook`. No account, no sync, no cloud. |
 | **🌗 Native feel** | Light and dark themes, native save dialogs, real keyboard shortcuts. |
 

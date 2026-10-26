@@ -37,6 +37,14 @@ Notebook is a macOS infinite-canvas notebook: React 19 + Vite 8 + Tailwind v4 + 
 - `pptx-preview` silently renders 0 slides for some generated decks (observed with pptxgenjs); the importer then throws “No pages found”. Tested python-pptx decks import fine; this is a library limitation, not wrapper logic.
 - `docx-preview` and `pptx-preview` are dynamically imported to keep them out of the startup bundle (`html2canvas-pro` is already pulled in by PDF export).
 
+## PDF export (`exportPdf.ts`, `PdfExportDialog.tsx`)
+
+- `PdfExportDialog` collects paper size, orientation and header/footer toggles, then drives `exportSectionToPdf`; it shows progress, can abort mid-render and returns to the save-dialog outcome on cancel. Don't add a second one-click export path.
+- Layout takes the section's single bounding rectangle (top-left of the top-left-most element to bottom-right of the bottom-right-most element), fits its width to the printable page width, and slices it into equal-height horizontal strips. Each strip is one page, top to bottom, so elements that cross a cut continue on the next page. Arrows are composited onto the raster afterwards; every element, including `rect` and `arrow`, contributes to the bounding rectangle.
+- Canvas units print at natural size (96 dpi) unless the rectangle is wider than the page, in which case it is scaled down to fit; it is never enlarged past 1:1. Each page is one offscreen DOM clone rasterised by `html2canvas-pro` at 200 dpi (≈1654 px wide for A4) and embedded as PNG. Don't go back to one html2canvas call per note.
+- A4/Letter, auto/portrait/landscape, the background colour (presets + custom picker), the header rule and `n / N` footer are all optional and live in the dialog. The palette adjusts header/footer ink and flips default text/arrow/rect ink for dark backgrounds, and `onclone` strips the app's `dark` class so canvas styling does not leak into the export.
+- In Tauri the native save dialog opens before any heavy work; dismissing it returns `{ saved: false }` and leaves the options visible. In the browser it falls back to `doc.save(filename)`.
+
 ## Toolchain constraints
 
 - pdfjs needs all three: worker wired at module scope via `pdf.worker.mjs?url`, `optimizeDeps.include: ['pdfjs-dist']` plus `build.target: 'esnext'` in `vite.config.ts`, and Tauri CSP allowing `worker-src blob:` / `img-src blob:`. Removing one yields opaque worker/import failures.
