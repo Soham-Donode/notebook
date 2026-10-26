@@ -29,6 +29,15 @@ Notebook is a macOS infinite-canvas notebook: React 19 + Vite 8 + Tailwind v4 + 
 - Deleting elements intentionally keeps blobs so undo can restore them; orphaned blobs are removed by `collectGarbage()` at startup. Deleting a notebook removes its folder and blobs. A new image-bearing element type or key prefix must be added to `collectGarbage`, the deletion paths, and App startup's live-key collection.
 - `SCHEMA_VERSION` in `src/types.ts` is both the Zustand persist version and the notebook-bundle version. Bump it and extend `migrate` when the persisted shape changes.
 
+## Share notebook (`.notebook` archives)
+
+- `src/utils/notebookArchive.ts` exports a notebook as a ZIP named `<name>.notebook` from the home-screen kebab menu, and imports one via the circular button beside “New Notebook”. `fflate` handles packing/unpacking.
+- Archive layout mirrors the on-disk notebook: `manifest.json` (format/version + old image key → archive path), `notebook.json` (local `folderName`/`folderPath` stripped), and `images/<sanitized-key>.jpg`.
+- Import never trusts archive ids: notebook, section, element, `pdfId` and image keys are regenerated so the same archive can be imported twice and each copy deleted independently. Name/folder collisions become `Name (2)`, `Name (3)`, … via `findAvailableNotebookTarget()`.
+- Images are written into `~/Documents/Notebook/<folder>/images/` with `saveImageToDisk`, not `putPageImage` (which targets the currently active notebook), then cached in IndexedDB. A failed import removes the half-written folder. Successful imports are added with `useNotesStore.addNotebook()` and opened immediately.
+- Tauri uses the native open/save dialogs; browser dev mode downloads/uploads the archive and only keeps it in IndexedDB, so it still disappears on reload like any browser-mode notebook.
+- `src/utils/bundle.ts` is an older, unwired JSON/base64 export path — don't add a second UI on top of it.
+
 ## Document import (`pdfProcessor.ts`, `documentProcessor.ts`, `pageSizing.ts`)
 
 - Toolbar “Import” accepts PDF, DOCX and PPTX; `.doc`/`.ppt` are deliberately rejected with a toast. Every page/slide becomes an image-backed `pdf-page` element — the same model as PDFs.

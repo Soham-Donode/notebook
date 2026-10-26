@@ -62,6 +62,7 @@ interface NotesState {
 
   // Import / Export helper
   setNotebooks: (notebooks: Notebook[]) => void;
+  addNotebook: (notebook: Notebook) => void;
   hydrateFromDisk: () => Promise<void>;
 }
 
@@ -807,6 +808,20 @@ export const useNotesStore = create<NotesState>()(
           activeNotebookId: notebooks[0]?.id ?? null,
           activeSectionId: notebooks[0]?.sections[0]?.id ?? null,
         });
+      },
+
+      /** Adds an imported notebook, opens it immediately, and persists it. */
+      addNotebook: (notebook: Notebook) => {
+        const nextNotebooks = [notebook, ...get().notebooks.filter((nb) => nb.id !== notebook.id)];
+        try {
+          localStorage.setItem('notebook_last_opened_notebook', notebook.id);
+        } catch (_) {}
+        set({
+          notebooks: nextNotebooks,
+          activeNotebookId: notebook.id,
+          activeSectionId: notebook.sections[0]?.id ?? null,
+        });
+        saveNotebookToDisk(notebook).catch(console.error);
       },
 
       hydrateFromDisk: async () => {

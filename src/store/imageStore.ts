@@ -32,6 +32,15 @@ export async function putPageImage(key: string, blob: Blob) {
   });
 }
 
+/**
+ * Caches an imported image in IndexedDB only. The archive importer writes the
+ * disk copy into the imported notebook's own folder, so it must not go through
+ * putPageImage (which targets the currently active notebook).
+ */
+export async function cachePageImage(key: string, blob: Blob) {
+  await set(key, blob);
+}
+
 /** Returns an object URL, memoised. Safe to call during render via useEffect. */
 export async function getPageImageUrl(key: string): Promise<string | null> {
   const cached = urlCache.get(key);

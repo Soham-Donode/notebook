@@ -22,15 +22,62 @@ export function sanitizeFolderName(name: string): string {
   return cleaned || 'Untitled_Notebook';
 }
 
-export function getNotebookFolderName(notebook: { id: string; name: string; folderName?: string }): string {
+export function getNotebookFolderName(notebook: { name: string; folderName?: string }): string {
   if (notebook.folderName && notebook.folderName.trim()) {
     return sanitizeFolderName(notebook.folderName);
   }
   return sanitizeFolderName(notebook.name);
 }
 
-function sanitizeKey(key: string): string {
+export function sanitizeKey(key: string): string {
   return key.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+export interface AvailableNotebookTarget {
+  name: string;
+  folder: string;
+}
+
+/**
+ * Picks a display name and disk folder that neither the in-memory notebook list
+ * nor ~/Documents/Notebook already uses. Importing the same archive twice should
+ * produce two independently deletable notebooks, not overwrite the first copy.
+ */
+export async function findAvailableNotebookTarget(
+  preferredName: string,
+  existing: ReadonlyArray<{ name: string; folderName?: string }>
+): Promise<AvailableNotebookTarget> {
+  const base = preferredName.trim() || 'Untitled Notebook';
+  const takenNames = new Set(
+    existing.map((notebook) => notebook.name.trim().toLowerCase()).filter(Boolean)
+  );
+  const takenFolders = new Set(
+    existing.map((notebook) => getNotebookFolderName(notebook).toLowerCase())
+  );
+
+  for (let index = 1; index < 1000; index++) {
+    const name = index === 1 ? base : `${base} (${index})`;
+    const folder = sanitizeFolderName(name);
+    if (takenNames.has(name.toLowerCase()) || takenFolders.has(folder.toLowerCase())) {
+      continue;
+    }
+
+    if (isTauriEnvironment()) {
+      try {
+        if (await exists(`${ROOT_DIR}/${folder}`, { baseDir: BaseDirectory.Document })) {
+          continue;
+        }
+      } catch {
+        // Never risk overwriting a folder we could not inspect.
+        break;
+      }
+    }
+
+    return { name, folder };
+  }
+
+  const fallbackName = `${base} ${Date.now()}`;
+  return { name: fallbackName, folder: sanitizeFolderName(fallbackName) };
 }
 
 /**

@@ -1,8 +1,32 @@
 import { FC, useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Notebook, NotepadText, Clock, Trash2, MoreHorizontal, Pencil, Search } from 'lucide-react';
+import {
+  Plus,
+  Notebook,
+  NotepadText,
+  Clock,
+  Trash2,
+  MoreHorizontal,
+  Pencil,
+  Search,
+  Download,
+  Loader2,
+  Import as ImportIcon,
+} from 'lucide-react';
 import { useNotesStore } from '../../store/useNotesStore';
 import { CreateNotebookDialog } from './CreateNotebookDialog';
 import { ConfirmDialog } from '../Common/ConfirmDialog';
+import { exportNotebookArchive, importNotebookArchive } from '../../utils/notebookArchive';
+import { isTauriEnvironment } from '../../services/storageService';
+
+function showToast(message: string) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('notebook-toast', { detail: message }));
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : 'Something went wrong.';
+}
 
 function formatRelativeDate(timestamp: number): string {
   const now = Date.now();
@@ -29,13 +53,17 @@ export const StartScreen: FC = () => {
   const [renamingNotebook, setRenamingNotebook] = useState<{ id: string; name: string } | null>(null);
   const [renameInput, setRenameInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const notebooks = useNotesStore((state) => state.notebooks);
   const createNotebook = useNotesStore((state) => state.createNotebook);
   const deleteNotebook = useNotesStore((state) => state.deleteNotebook);
   const renameNotebook = useNotesStore((state) => state.renameNotebook);
   const setActiveNotebook = useNotesStore((state) => state.setActiveNotebook);
+  const addNotebook = useNotesStore((state) => state.addNotebook);
 
   useEffect(() => {
     const handleCloseMenu = () => setOpenMenuId(null);
@@ -66,6 +94,58 @@ export const StartScreen: FC = () => {
     if (!q) return sortedNotebooks;
     return sortedNotebooks.filter((nb) => nb.name.toLowerCase().includes(q));
   }, [sortedNotebooks, searchQuery]);
+
+  const handleExport = async (nb: (typeof notebooks)[number]) => {
+    if (exportingId) return;
+    setOpenMenuId(null);
+    setExportingId(nb.id);
+    showToast(`Packing “${nb.name}”…`);
+
+    try {
+      const result = await exportNotebookArchive(nb);
+      if (!result.saved) return;
+
+      const missing =
+        result.missingImages > 0
+          ? ` — ${result.missingImages} image${result.missingImages === 1 ? '' : 's'} could not be packed`
+          : '';
+      showToast(`Exported “${nb.name}”${missing}`);
+    } catch (error) {
+      showToast(`Export failed: ${errorMessage(error)}`);
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const runImport = async (file?: File) => {
+    if (isImporting) return;
+    setIsImporting(true);
+
+    try {
+      const result = await importNotebookArchive(file);
+      if (!result) return; // Picker dismissed.
+
+      addNotebook(result.notebook);
+      const missing =
+        result.missingImages > 0
+          ? ` — ${result.missingImages} image${result.missingImages === 1 ? '' : 's'} missing from the archive`
+          : '';
+      showToast(`Imported “${result.notebook.name}”${missing}`);
+    } catch (error) {
+      showToast(errorMessage(error));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    if (isImporting) return;
+    if (isTauriEnvironment()) {
+      void runImport();
+    } else {
+      importFileRef.current?.click();
+    }
+  };
 
   return (
     <div
@@ -127,20 +207,37 @@ export const StartScreen: FC = () => {
             </div>
           </div>
 
-          {/* Right — New Notebook */}
-          <button
-            type="button"
-            onClick={() => setIsCreateOpen(true)}
-            className="no-drag shrink-0 flex items-center gap-1.5 h-11 px-5 rounded-full text-[13px] font-medium hover:opacity-90 active:scale-95 transition-all duration-150 cursor-pointer"
-            style={{
-              background: 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.22)',
-              color: 'rgba(255,255,255,0.95)',
-            }}
-          >
-            <Plus size={15} strokeWidth={2.5} />
-            New Notebook
-          </button>
+          {/* Right — Import · New Notebook */}
+          <div className="no-drag shrink-0 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleImportClick}
+              disabled={isImporting}
+              title="Import a .notebook file"
+              aria-label="Import a .notebook file"
+              className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-white/75 hover:text-white bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.14] hover:border-white/[0.24] transition-all duration-150 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-wait"
+            >
+              {isImporting ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : (
+                <ImportIcon size={17} strokeWidth={2} />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(true)}
+              className="shrink-0 flex items-center gap-1.5 h-11 px-5 rounded-full text-[13px] font-medium hover:opacity-90 active:scale-95 transition-all duration-150 cursor-pointer"
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.22)',
+                color: 'rgba(255,255,255,0.95)',
+              }}
+            >
+              <Plus size={15} strokeWidth={2.5} />
+              New Notebook
+            </button>
+          </div>
         </div>
       </header>
 
@@ -241,6 +338,19 @@ export const StartScreen: FC = () => {
                             <Pencil size={13} className="text-white/40" />
                             <span>Rename notebook</span>
                           </button>
+                          <button
+                            type="button"
+                            disabled={exportingId !== null}
+                            onClick={() => void handleExport(nb)}
+                            className="w-full px-2.5 py-2 rounded-lg text-left text-xs text-white/70 hover:text-white hover:bg-white/10 transition flex items-center gap-2 cursor-pointer font-medium disabled:opacity-40 disabled:cursor-wait"
+                          >
+                            {exportingId === nb.id ? (
+                              <Loader2 size={13} className="text-white/40 animate-spin" />
+                            ) : (
+                              <Download size={13} className="text-white/40" />
+                            )}
+                            <span>Export to .notebook</span>
+                          </button>
                           <div className="border-t border-white/[0.07] my-1" />
                           <button
                             type="button"
@@ -275,6 +385,19 @@ export const StartScreen: FC = () => {
         </div>
         </div>
       </div>
+
+      {/* Hidden fallback picker for browser dev mode (Tauri uses the native dialog) */}
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".notebook"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          if (file) void runImport(file);
+        }}
+      />
 
       {/* Create Dialog */}
       <CreateNotebookDialog

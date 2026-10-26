@@ -610,7 +610,7 @@ export default function App() {
     <>
       {/* Global In-app Notification Toast */}
       {toastMessage && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[9999] px-5 py-2.5 rounded-2xl bg-gray-900/90 dark:bg-[#1E1E1E]/95 text-white dark:text-gray-100 text-xs font-medium backdrop-blur-xl shadow-2xl border border-white/15 dark:border-white/10 pointer-events-none flex items-center gap-2 animate-slide-down">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-2.5 rounded-2xl bg-gray-900/90 dark:bg-[#1E1E1E]/95 text-white dark:text-gray-100 text-xs font-medium backdrop-blur-xl shadow-2xl border border-white/15 dark:border-white/10 pointer-events-none flex items-center gap-2 animate-slide-up">
           <span>{toastMessage}</span>
         </div>
       )}
@@ -660,7 +660,7 @@ export default function App() {
 
             {/* Async Import Progress Pill — Dynamic Island style */}
             {isImporting && importProgress && (
-              <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-full bg-gray-900/90 dark:bg-[#1E1E1E]/95 text-white dark:text-gray-100 text-xs font-medium backdrop-blur-xl shadow-2xl border border-white/10 pointer-events-none flex items-center gap-3 animate-slide-down">
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-full bg-gray-900/90 dark:bg-[#1E1E1E]/95 text-white dark:text-gray-100 text-xs font-medium backdrop-blur-xl shadow-2xl border border-white/10 pointer-events-none flex items-center gap-3 animate-slide-up">
                 <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
                 <span>
                   {importProgress.done > 0
